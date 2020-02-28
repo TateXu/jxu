@@ -47,35 +47,6 @@ WP$ possessive wh-pronoun   whose
 WRB wh-abverb   where, when
 """
 
-def audio_to_chunk(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, audio_rate=1.0, pitch=0.0):
-
-    # folder_path = file_root + 'article_{0}/'.format(article_id)
-    folder_path = file_root + 'article_{0}_speed_{1}_pitch_{2}/'.format(article_id, audio_rate, pitch)
-    n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
-
-    for sen_ind in range(n_audiofile):
-        sen_folder_path = folder_path + 'sentence_{0}/'.format(sen_ind)
-
-        if len([name for name in os.listdir(sen_folder_path) if name[-4:] == '.wav']) == 0:
-            import subprocess
-            audio_name_trim = sen_folder_path + 'sentence_{0}_ori'.format(sen_ind)
-            subprocess.call(['ffmpeg', '-i', audio_name_trim + '.mp3', audio_name_trim + '.wav'])
-
-        audio_name = sen_folder_path + 'sentence_{0}_ori'.format(sen_ind) + '.wav'
-        min_amp = audio_onedim(audio_name, wav=True, metric='dBFS', pflag=False)
-
-        sound_file = AudioSegment.from_wav(audio_name)
-        audio_chunks = split_on_silence(sound_file, min_silence_len=390,silence_thresh=np.floor(min_amp))
-
-        for i, chunk in enumerate(audio_chunks):
-            chunk_folder_path = sen_folder_path + 'chunk/'
-            if not os.path.exists(chunk_folder_path):
-                os.mkdir(chunk_folder_path)
-            out_file = chunk_folder_path + "chunk{0}.wav".format(i)
-            print("exporting" + out_file)
-            chunk.export(out_file, format="wav")
-
-    return print("All audio files are chunked into word/phrase level!")
 
 
 def google_text_to_speech(ssml_string, audio_location, speed=1.0, pitch=0.0):

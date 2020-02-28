@@ -292,7 +292,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
 
 
 def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, audio_rate=1.0,
-                   pitch=0.0, beep_word_type='VB'):
+                   pitch=0.0, beep_word_type='VB', sps=24000, beep_freq=40.0, vol=0.3):
 
     folder_path = file_root + 'article_{0}_speed_{1}_pitch_{2}/'.format(article_id, audio_rate, pitch)
     n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
@@ -301,20 +301,20 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                 ('META_INFO', 'tag_list'), ('META_INFO', 'n_tag'),
                 ('SENTENCE_INFO', 'article_id'), ('SENTENCE_INFO', 'sen_id'), ('SENTENCE_INFO', 'sen_content'),
                 ('SENTENCE_INFO', 'beep_word_type'), ('SENTENCE_INFO', 'beeped_word'), ('SENTENCE_INFO', 'beeped_word_duration'), 
+                ('SENTENCE_INFO', 'beeped_word_timestamp_start'), ('SENTENCE_INFO', 'beeped_word_timestamp_end'),
+                ('SENTENCE_INFO', 'sentence_duration'),
                 ('EXP_INFO', 'S01'), ('EXP_INFO', 'S02'), ('EXP_INFO', 'S03'), ('EXP_INFO', 'S04'), ('EXP_INFO', 'S05'),
                 ('EXP_INFO', 'S06'), ('EXP_INFO', 'S07'), ('EXP_INFO', 'S08'), ('EXP_INFO', 'S09'), ('EXP_INFO', 'S10')]
     dataframe_path = file_root + 'all_beep_df.pkl'
     if not os.path.exists(dataframe_path):
         empty_df = pd.DataFrame(columns=col_name)
+        empty_df.columns = pd.MultiIndex.from_tuples(empty_df.columns, names=['General','Detail'])
         empty_df.to_pickle(dataframe_path)
 
     all_beep_df = pd.read_pickle(dataframe_path)
     empty_sen_df = pd.DataFrame(columns=col_name)
+    empty_sen_df.columns = pd.MultiIndex.from_tuples(empty_sen_df.columns, names=['General','Detail'])
 
-
-    sps = 44100
-    beep_freq = 660.0  # Hz
-    vol = 0.3
     punc = string.punctuation
 
     for sen_ind in range(n_audiofile):
@@ -379,12 +379,21 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                     else:
                         trimmed_sound = sound[start_trim:duration_chunk - end_trim]
 
+                    if chunk_ind == com_chunk_ind:
+                        censor_start = len(combined_sounds) / 1000
+
                     if com_chunk_ind == 0:
                         combined_sounds = trimmed_sound
                     else:
                         combined_sounds = combined_sounds + trimmed_sound
+
+                    if chunk_ind == com_chunk_ind:
+                        censor_end = len(combined_sounds) / 1000
+
+
                 new_fname = sen_folder_path + 'sentence_{0}_syn_{1}_{2}.wav'.format(sen_ind, beep_word_type, itr_ind)
                 combined_sounds.export(new_fname, format="wav")
+                sen_duration = len(combined_sounds) / 1000
                 data = {('PATH', 'file_root_ori'): [sen_folder_path + 'sentence_{0}.mp3'.format(sen_ind)],
                         ('PATH', 'file_root_syn'): [new_fname],
                         ('META_INFO', 'audio_rate'): [audio_rate],
@@ -398,11 +407,15 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                         ('SENTENCE_INFO', 'beep_word_type'): [beep_word_type],
                         ('SENTENCE_INFO', 'beeped_word'): [beep_ind[itr_ind][1][0]],
                         ('SENTENCE_INFO', 'beeped_word_duration'): [duration],
+                        ('SENTENCE_INFO', 'beeped_word_timestamp_start'): [censor_start],
+                        ('SENTENCE_INFO', 'beeped_word_timestamp_end'): [censor_end],
+                        ('SENTENCE_INFO', 'sentence_duration'): [sen_duration],
                         ('EXP_INFO', 'S01'): None, ('EXP_INFO', 'S02'): None,
                         ('EXP_INFO', 'S03'): None, ('EXP_INFO', 'S04'): None,
                         ('EXP_INFO', 'S05'): None, ('EXP_INFO', 'S06'): None,
                         ('EXP_INFO', 'S07'): None, ('EXP_INFO', 'S08'): None,
                         ('EXP_INFO', 'S09'): None, ('EXP_INFO', 'S10'): None}
+
                 tmp_df = pd.DataFrame(data)
                 empty_sen_df = pd.concat([empty_sen_df, tmp_df], ignore_index=True)
 
@@ -412,9 +425,45 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                 shutil.copy(chunk_folder_path + "chunk{0}_tmp.wav".format(chunk_ind), beeped_chunk)
                 os.remove(chunk_folder_path + "chunk{0}_tmp.wav".format(chunk_ind))
 
+
+    empty_sen_df.to_pickle(folder_path + 'article_beep.pkl')
+
+    import pdb
+    pdb.set_trace()
     all_beep_df = pd.concat([all_beep_df, empty_sen_df], ignore_index=True)
 
     col_name.pop(col_name.index(('META_INFO', 'tag_list')))
     all_beep_df.drop_duplicates(subset=col_name, keep='first', inplace=True)
     all_beep_df.columns = pd.MultiIndex.from_tuples(all_beep_df.columns, names=['Caps','Lower'])
     all_beep_df.to_pickle(dataframe_path)
+
+
+def audio_to_chunk(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, audio_rate=1.0, pitch=0.0):
+
+    # folder_path = file_root + 'article_{0}/'.format(article_id)
+    folder_path = file_root + 'article_{0}_speed_{1}_pitch_{2}/'.format(article_id, audio_rate, pitch)
+    n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
+
+    for sen_ind in range(n_audiofile):
+        sen_folder_path = folder_path + 'sentence_{0}/'.format(sen_ind)
+
+        if len([name for name in os.listdir(sen_folder_path) if name[-4:] == '.wav']) == 0:
+            import subprocess
+            audio_name_trim = sen_folder_path + 'sentence_{0}_ori'.format(sen_ind)
+            subprocess.call(['ffmpeg', '-i', audio_name_trim + '.mp3', audio_name_trim + '.wav'])
+
+        audio_name = sen_folder_path + 'sentence_{0}_ori'.format(sen_ind) + '.wav'
+        min_amp = audio_onedim(audio_name, wav=True, metric='dBFS', pflag=False)
+
+        sound_file = AudioSegment.from_wav(audio_name)
+        audio_chunks = split_on_silence(sound_file, min_silence_len=390,silence_thresh=np.floor(min_amp))
+
+        for i, chunk in enumerate(audio_chunks):
+            chunk_folder_path = sen_folder_path + 'chunk/'
+            if not os.path.exists(chunk_folder_path):
+                os.mkdir(chunk_folder_path)
+            out_file = chunk_folder_path + "chunk{0}.wav".format(i)
+            print("exporting" + out_file)
+            chunk.export(out_file, format="wav")
+
+    return print("All audio files are chunked into word/phrase level!")
