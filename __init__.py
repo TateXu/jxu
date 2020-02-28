@@ -6,7 +6,6 @@
 
 import numpy as np
 from .basiccmd import *
-from .data import *
 from .onlinestream import *
 from .hardware import *
 from .signalprocessing import *
