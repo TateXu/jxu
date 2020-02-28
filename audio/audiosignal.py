@@ -1,0 +1,420 @@
+import sys
+import wave
+import subprocess 
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import wave
+import pickle
+import string
+import contextlib
+import numpy as np
+from scipy.io.wavfile import write as sci_write
+from pydub import AudioSegment
+import shutil
+import pandas as pd
+
+
+def speed_change(sound, speed=1.0):
+    # NOT SELF WRITTEN!!!!!
+    # https://stackoverflow.com/questions/51434897/how-to-change-audio-playback-speed-using-pydub
+
+    # Manually override the frame_rate. This tells the computer how many
+    # samples to play per second
+    sound_with_altered_frame_rate = sound._spawn(sound.raw_data, overrides={
+         "frame_rate": int(sound.frame_rate * speed)
+      })
+     # convert the sound with altered frame rate to a standard frame rate
+     # so that regular playback programs will work right. They often only
+     # know how to play audio at standard frame rate (like 44.1k)
+    return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
+
+
+def mp3_to_wav(filename, sps=44100, channel=1):
+    """
+    Audio options:
+    -aframes number     set the number of audio frames to output
+    -aq quality         set audio quality (codec-specific)
+    -ar rate            set audio sampling rate (in Hz)
+    -ac channels        set number of audio channels
+    -an                 disable audio
+    -acodec codec       force audio codec ('copy' to copy stream)
+    -vol volume         change audio volume (256=normal)
+    -af filter_graph    set audio filters
+
+    """
+    subprocess.call(['ffmpeg', '-i', filename + '.mp3', '-ac', str(channel), '-ar', str(sps), '-y', filename + '.wav'])
+
+def wav_edit(infile, nchn=1, samplewidth=2, sps=44100, cut=False, start=0.0, end=1.0, rm_silence=False, add_silence=False,
+    silence_dur=1000, silence_start=0.0, speed=1.0, std_flag=0, out_format='wav', edit_audio= None, outfile=None, speed_optimal= True):
+
+    data= []
+
+    wfile = wave.open(infile, 'rb')
+    if std_flag or wfile.getparams()[:3] != (nchn, samplewidth, sps):
+        print("Convering audio format: channel " + str(nchn) + ", sample width: " + str(samplewidth) + ', rate: ' + str(sps))
+        subprocess.call(['ffmpeg', '-i', infile, '-ac', str(nchn), '-ar', str(sps), '-y', 'standard_' + infile])
+        std_flag = 1
+
+    if std_flag:
+        sound = AudioSegment.from_file('standard_' + infile)
+    else:
+        sound = AudioSegment.from_file(infile)  
+
+
+    audio_len = len(sound)
+
+
+    if cut:
+        edit_audio = sound[int(audio_len * start):int(audio_len * end)]
+        outfile = 'cut_' + str(start) + '_' + str(end) + '_' + infile
+
+
+    if rm_silence:
+        start_trim = detect_leading_silence(sound, silence_threshold=-80.0, chunk_size=1)
+        end_trim = detect_leading_silence(sound.reverse(), silence_threshold=-80.0, chunk_size=1)
+        duration_chunk = len(sound)
+        if duration_chunk - end_trim - start_trim < 20:
+            trimmed_sound = sound
+            print(start_trim)
+            print(end_trim)
+            raise ValueError("Too short audio or too long silence! Not trimmed!")
+        else:
+            edit_audio = sound[start_trim:duration_chunk - end_trim]
+            outfile = 'rm_silence_' + infile
+
+    if add_silence:
+        silence_segment = AudioSegment.silent(duration=silence_dur)
+        audio_cut = [sound[:int(silence_start * audio_len)], sound[int(silence_start * audio_len):]]
+        edit_audio = audio_cut[0] + silence_segment + audio_cut[1]
+        outfile = 'add_silence_' + str(silence_dur) + 'ms_start_' + str(silence_start) + '_' + infile
+
+    if speed != 1.0:
+        outfile = 'speed_' + str(speed) + '_' + infile 
+        if speed_optimal:
+            subprocess.call(['ffmpeg', '-i', infile, '-filter:a', "atempo=" + str(speed), '-vn', outfile])
+
+            return print("Output file:" + outfile)
+        else:
+            edit_audio = speed_change(sound, speed)
+        
+
+    if outfile == None or edit_audio == None:
+        edit_audio = sound
+        outfile = 'copy_' + infile
+
+    edit_audio.export(outfile, format=out_format)
+
+    return print("Output file:" + outfile)
+
+
+def wav_concat(infiles, outfile, nchn=1, samplewidth=2, sps=44100):
+
+    data= []
+    for infile in infiles:
+        wfile = wave.open(infile, 'rb')
+        if wfile.getparams()[:3] != (nchn, samplewidth, sps):
+            print("Convering audio format: channel " + str(nchn) + ", sample width: " + str(samplewidth) + ', rate: ' + str(sps))
+            subprocess.call(['ffmpeg', '-i', infile, '-ac', str(nchn), '-ar', str(sps), '-y', 'temp_' + infile])
+            wfile = wave.open('temp_' + infile, 'rb')
+            subprocess.call(['rm', 'temp_' + infile])
+
+        data.append( [wfile.getparams(), wfile.readframes(wfile.getnframes())] )
+        wfile.close()
+
+    output = wave.open(outfile, 'wb')
+    output.setparams(data[0][0])
+    for ind in range(len(infiles)):
+        output.writeframes(data[ind][1])
+
+    output.close()
+    del wfile, output, data, ind
+
+    return print("Output file:" + outfile)
+
+
+def audio_onedim(filename, wav=True, metric='default', pflag=True, sps=44100.0):
+
+    if wav:
+        newfilename = filename
+    else:
+        subprocess.call(['ffmpeg', '-i', filename, newfilename])
+
+    spf = wave.open(newfilename, "r")
+
+    # Extract Raw Audio from Wav File
+    signal = spf.readframes(-1)
+    signal = np.fromstring(signal, "Int16")
+    maxValue = np.max(np.abs(signal))
+
+    if metric == 'default':
+        sig = signal
+    elif metric == 'dBFS':
+        sig = 20*np.log10(abs(signal)/maxValue)
+    
+    if pflag:
+        plt.figure(1)
+        plt.title("Signal Wave")
+        plt.plot(np.arange(len(signal)) / sps, sig)
+        plt.show()
+
+    print('Min:' + str(np.sort(np.unique(sig))[1]))
+    return np.sort(np.unique(sig))[1]
+
+
+def detect_leading_silence(sound, silence_threshold=-87.0, chunk_size=5):
+    trim_ms = 0 # ms
+    assert chunk_size > 0 # to avoid infinite loop
+    while sound[trim_ms:trim_ms+chunk_size].dBFS < silence_threshold and trim_ms < len(sound):
+        trim_ms += chunk_size
+    return trim_ms
+
+
+# beep_generator('C5_A_tone_flat_3quater_s.wav', tone='flat', slice_duration=0.75, beep_freq=[1760.0])
+def beep_generator(filen_name, file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Soundeffect/',
+                   slice_duration=1.0, tone='flat', vol=0.3, sps=44100, beep_freq=440.0):
+    
+    if tone == 'flat':
+        amp = vol
+    elif tone == 'increase':
+        amp = np.linspace(vol*0.3, vol, slice_duration * sps)
+    elif tone == 'decrease':
+        amp = np.linspace(vol, vol*0.3, slice_duration * sps)
+    else:
+        raise ValueError("Wrong input of tone!")
+
+    if not isinstance(beep_freq, list):
+        beep_freq = [beep_freq]
+
+    esm = np.arange(slice_duration * sps)
+    wf_full = np.empty(0,)
+
+    for freq in beep_freq:    
+        wf = np.sin(2 * np.pi * esm * freq / sps)
+        wf_slice = wf * amp
+        wf_full = np.concatenate((wf_full, wf_slice))
+
+    if tone != 'flat':
+        wf_full = np.concatenate((wf_full, ))
+    wf_int = np.int16(wf_full * 32767)
+    if not os.path.exists(file_root + 'beep/'):
+        os.mkdir(file_root + 'beep/')
+    beep_file = file_root + 'beep/' + filen_name
+    sci_write(beep_file, sps, wf_int)
+
+    return print('Saved file:' + beep_file)
+
+
+
+"""
+def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, beep_word_type='VB'):
+
+    folder_path = file_root + 'article_{0}/'.format(article_id)
+    n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
+
+    sps = 44100
+    beep_freq = 660.0  # Hz
+    vol = 0.3
+    punc = string.punctuation
+
+    for sen_ind in range(n_audiofile):
+
+        sen_folder_path = folder_path + 'sentence_{0}/'.format(sen_ind)
+        chunk_folder_path = sen_folder_path + 'chunk/'
+
+        with open(sen_folder_path + 'taglist.pkl', 'rb') as f:
+            sen_tag = pickle.load(f)
+
+        n_chunk = len([name for name in os.listdir(chunk_folder_path) if name[:5] == 'chunk' and name[-7:-4] != 'tmp'])
+
+        tag_list = [word_tag for word_tag in sen_tag if word_tag[0] not in punc]
+        n_tag = len(tag_list)
+
+        if n_chunk != n_tag:
+            print("Please check chunked files!!!")
+            print(tag_list)
+            import pdb
+            pdb.set_trace()
+        else:
+            beep_ind = [[word_ind, word_tag] for word_ind, word_tag in enumerate(sen_tag) if word_tag[1] == beep_word_type]
+            if len(beep_ind) == 0:
+                print("No matching word type " + beep_word_type + " in the sentence! Path: " + sen_folder_path)
+            elif len(beep_ind) > 1:
+                print("More than ONE word will be replaced with beeping noise!")
+                import pdb
+                pdb.set_trace()
+            
+            for i in range(len(beep_ind)):
+                chunk_ind = beep_ind[i][0]
+                beeped_chunk = chunk_folder_path + "chunk{0}.wav".format(chunk_ind)
+                print("Replacing " + beep_ind[i][1][1] + ': ' + beep_ind[i][1][0] + ' with beeping noise')
+                shutil.copy(beeped_chunk, chunk_folder_path + "chunk{0}_tmp.wav".format(chunk_ind))
+                with contextlib.closing(wave.open(beeped_chunk,'r')) as f:
+                    frames = f.getnframes()
+                    rate = f.getframerate()
+                    duration = frames / float(rate)
+                    # print(duration)
+                esm = np.arange(duration * sps)
+                wf = np.sin(2 * np.pi * esm * beep_freq / sps)
+                wf_quiet = wf * vol
+                wf_int = np.int16(wf_quiet * 32767)
+                sci_write(beeped_chunk, sps, wf_int)
+
+                # os.system('play -nq -t alsa synth {} sine {}'.format(duration, beep_freq))
+
+            for com_chunk_ind in range(n_chunk):
+                chunk_file = chunk_folder_path + "chunk{0}.wav".format(com_chunk_ind)
+                sound = AudioSegment.from_wav(chunk_file)
+                start_trim = detect_leading_silence(sound, silence_threshold=-80.0, chunk_size=1)
+                end_trim = detect_leading_silence(sound.reverse(), silence_threshold=-80.0, chunk_size=1)
+                duration_chunk = len(sound)
+                if (com_chunk_ind == beep_ind[0][0]) or (duration_chunk - end_trim - start_trim < 20):
+                    trimmed_sound = sound
+                    print(start_trim)
+                    print(end_trim)
+                    print("not trimmed")
+                else:
+                    trimmed_sound = sound[start_trim:duration_chunk - end_trim]
+
+                if com_chunk_ind == 0:
+                    combined_sounds = trimmed_sound
+                else:
+                    combined_sounds = combined_sounds + trimmed_sound
+
+            new_fname = sen_folder_path + 'sentence_{0}_syn_{1}.wav'.format(sen_ind, beep_word_type)
+            combined_sounds.export(new_fname, format="wav")
+            # audio_onedim(new_fname, wav=True, metric='dBFS')
+
+            for i in range(len(beep_ind)):
+                shutil.copy(chunk_folder_path + "chunk{0}_tmp.wav".format(beep_ind[i][0]), beeped_chunk)
+                os.remove(chunk_folder_path + "chunk{0}_tmp.wav".format(beep_ind[i][0]))
+"""
+
+
+def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, audio_rate=1.0,
+                   pitch=0.0, beep_word_type='VB'):
+
+    folder_path = file_root + 'article_{0}_speed_{1}_pitch_{2}/'.format(article_id, audio_rate, pitch)
+    n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
+    col_name = [('PATH', 'file_root_ori'), ('PATH', 'file_root_syn'),
+                ('META_INFO', 'audio_rate'), ('META_INFO', 'pitch'), ('META_INFO', 'language'),
+                ('META_INFO', 'tag_list'), ('META_INFO', 'n_tag'),
+                ('SENTENCE_INFO', 'article_id'), ('SENTENCE_INFO', 'sen_id'), ('SENTENCE_INFO', 'sen_content'),
+                ('SENTENCE_INFO', 'beep_word_type'), ('SENTENCE_INFO', 'beeped_word'), ('SENTENCE_INFO', 'beeped_word_duration'), 
+                ('EXP_INFO', 'S01'), ('EXP_INFO', 'S02'), ('EXP_INFO', 'S03'), ('EXP_INFO', 'S04'), ('EXP_INFO', 'S05'),
+                ('EXP_INFO', 'S06'), ('EXP_INFO', 'S07'), ('EXP_INFO', 'S08'), ('EXP_INFO', 'S09'), ('EXP_INFO', 'S10')]
+    dataframe_path = file_root + 'all_beep_df.pkl'
+    if not os.path.exists(dataframe_path):
+        empty_df = pd.DataFrame(columns=col_name)
+        empty_df.to_pickle(dataframe_path)
+
+    all_beep_df = pd.read_pickle(dataframe_path)
+    empty_sen_df = pd.DataFrame(columns=col_name)
+
+
+    sps = 44100
+    beep_freq = 660.0  # Hz
+    vol = 0.3
+    punc = string.punctuation
+
+    for sen_ind in range(n_audiofile):
+
+        sen_folder_path = folder_path + 'sentence_{0}/'.format(sen_ind)
+        chunk_folder_path = sen_folder_path + 'chunk/'
+
+        with open(sen_folder_path + 'taglist.pkl', 'rb') as f:
+            sen_tag = pickle.load(f)
+
+        sen_content = ' '.join([sen_tag[i][0] for i in range(len(sen_tag))])
+        n_chunk = len([name for name in os.listdir(chunk_folder_path) if name[:5] == 'chunk' and name[-7:-4] != 'tmp'])
+
+        tag_list = [word_tag for word_tag in sen_tag if word_tag[0] not in punc]
+        n_tag = len(tag_list)
+
+        if n_chunk != n_tag:
+            print("Please check chunked files!!!")
+            print(tag_list)
+            import pdb
+            pdb.set_trace()
+        else:
+            beep_ind = [[word_ind, word_tag] for word_ind, word_tag in enumerate(tag_list) if word_tag[1] == beep_word_type]
+            if len(beep_ind) == 0:
+                print("No matching word type " + beep_word_type + " in the sentence! Path: " + sen_folder_path)
+            elif len(beep_ind) > 1:
+                print("More than ONE word will be replaced with beeping noise!")
+            
+            for itr_ind in range(len(beep_ind)):
+                chunk_ind = beep_ind[itr_ind][0]
+                beeped_chunk = chunk_folder_path + "chunk{0}.wav".format(chunk_ind)
+                print("Replacing " + beep_ind[itr_ind][1][1] + ': ' + beep_ind[itr_ind][1][0] + ' with beeping noise')
+                try:
+                    shutil.copy(beeped_chunk, chunk_folder_path + "chunk{0}_tmp.wav".format(chunk_ind))
+                except:
+                    import pdb
+                    pdb.set_trace()
+                with contextlib.closing(wave.open(beeped_chunk,'r')) as f:
+                    frames = f.getnframes()
+                    rate = f.getframerate()
+                    duration = frames / float(rate)
+                    # print(duration)
+                esm = np.arange(duration * sps)
+                wf = np.sin(2 * np.pi * esm * beep_freq / sps)
+                wf_quiet = wf * vol
+                wf_int = np.int16(wf_quiet * 32767)
+                sci_write(beeped_chunk, sps, wf_int)
+
+                # os.system('play -nq -t alsa synth {} sine {}'.format(duration, beep_freq))
+
+                for com_chunk_ind in range(n_chunk):
+                    chunk_file = chunk_folder_path + "chunk{0}.wav".format(com_chunk_ind)
+                    sound = AudioSegment.from_wav(chunk_file)
+                    start_trim = detect_leading_silence(sound, silence_threshold=-80.0, chunk_size=1)
+                    end_trim = detect_leading_silence(sound.reverse(), silence_threshold=-80.0, chunk_size=1)
+                    duration_chunk = len(sound)
+                    if (com_chunk_ind == beep_ind[0][0]) or (duration_chunk - end_trim - start_trim < 20):
+                        trimmed_sound = sound
+                        print(start_trim)
+                        print(end_trim)
+                        print("not trimmed")
+                    else:
+                        trimmed_sound = sound[start_trim:duration_chunk - end_trim]
+
+                    if com_chunk_ind == 0:
+                        combined_sounds = trimmed_sound
+                    else:
+                        combined_sounds = combined_sounds + trimmed_sound
+                new_fname = sen_folder_path + 'sentence_{0}_syn_{1}_{2}.wav'.format(sen_ind, beep_word_type, itr_ind)
+                combined_sounds.export(new_fname, format="wav")
+                data = {('PATH', 'file_root_ori'): [sen_folder_path + 'sentence_{0}.mp3'.format(sen_ind)],
+                        ('PATH', 'file_root_syn'): [new_fname],
+                        ('META_INFO', 'audio_rate'): [audio_rate],
+                        ('META_INFO', 'pitch'): [pitch],
+                        ('META_INFO', 'language'): ['German'],
+                        ('META_INFO', 'tag_list'): [tag_list],
+                        ('META_INFO', 'n_tag'): [n_tag],
+                        ('SENTENCE_INFO', 'article_id'): [article_id],
+                        ('SENTENCE_INFO', 'sen_id'): [sen_ind],
+                        ('SENTENCE_INFO', 'sen_content'): [sen_content],
+                        ('SENTENCE_INFO', 'beep_word_type'): [beep_word_type],
+                        ('SENTENCE_INFO', 'beeped_word'): [beep_ind[itr_ind][1][0]],
+                        ('SENTENCE_INFO', 'beeped_word_duration'): [duration],
+                        ('EXP_INFO', 'S01'): None, ('EXP_INFO', 'S02'): None,
+                        ('EXP_INFO', 'S03'): None, ('EXP_INFO', 'S04'): None,
+                        ('EXP_INFO', 'S05'): None, ('EXP_INFO', 'S06'): None,
+                        ('EXP_INFO', 'S07'): None, ('EXP_INFO', 'S08'): None,
+                        ('EXP_INFO', 'S09'): None, ('EXP_INFO', 'S10'): None}
+                tmp_df = pd.DataFrame(data)
+                empty_sen_df = pd.concat([empty_sen_df, tmp_df], ignore_index=True)
+
+
+                # audio_onedim(new_fname, wav=True, metric='dBFS')
+
+                shutil.copy(chunk_folder_path + "chunk{0}_tmp.wav".format(chunk_ind), beeped_chunk)
+                os.remove(chunk_folder_path + "chunk{0}_tmp.wav".format(chunk_ind))
+
+    all_beep_df = pd.concat([all_beep_df, empty_sen_df], ignore_index=True)
+
+    col_name.pop(col_name.index(('META_INFO', 'tag_list')))
+    all_beep_df.drop_duplicates(subset=col_name, keep='first', inplace=True)
+    all_beep_df.columns = pd.MultiIndex.from_tuples(all_beep_df.columns, names=['Caps','Lower'])
+    all_beep_df.to_pickle(dataframe_path)
