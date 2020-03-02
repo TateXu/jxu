@@ -13,6 +13,7 @@ from scipy.io.wavfile import write as sci_write
 from pydub import AudioSegment
 import shutil
 import pandas as pd
+from pydub.silence import split_on_silence
 
 
 def speed_change(sound, speed=1.0):
@@ -29,8 +30,10 @@ def speed_change(sound, speed=1.0):
      # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
+def wav_std(filename, sps=24000, channel=1):
+    subprocess.call(['ffmpeg', '-i', filename + '.wav', '-ac', str(channel), '-ar', str(sps), '-y', filename + '_new.wav'])
 
-def mp3_to_wav(filename, sps=44100, channel=1):
+def mp3_to_wav(filename, sps=24000, channel=1):
     """
     Audio options:
     -aframes number     set the number of audio frames to output
@@ -45,7 +48,7 @@ def mp3_to_wav(filename, sps=44100, channel=1):
     """
     subprocess.call(['ffmpeg', '-i', filename + '.mp3', '-ac', str(channel), '-ar', str(sps), '-y', filename + '.wav'])
 
-def wav_edit(infile, nchn=1, samplewidth=2, sps=44100, cut=False, start=0.0, end=1.0, rm_silence=False, add_silence=False,
+def wav_edit(infile, nchn=1, samplewidth=2, sps=24000, cut=False, start=0.0, end=1.0, rm_silence=False, add_silence=False,
     silence_dur=1000, silence_start=0.0, speed=1.0, std_flag=0, out_format='wav', edit_audio= None, outfile=None, speed_optimal= True):
 
     data= []
@@ -292,7 +295,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
 
 
 def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, audio_rate=1.0,
-                   pitch=0.0, beep_word_type='VB', sps=24000, beep_freq=40.0, vol=0.3):
+                   pitch=0.0, beep_word_type='VERB', sps=24000, beep_freq=40.0, vol=0.3):
 
     folder_path = file_root + 'article_{0}_speed_{1}_pitch_{2}/'.format(article_id, audio_rate, pitch)
     n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
