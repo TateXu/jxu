@@ -331,12 +331,17 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
         sen_content = ' '.join([sen_tag[i][0] for i in range(len(sen_tag))])
         n_chunk = len([name for name in os.listdir(chunk_folder_path) if name[:5] == 'chunk' and name[-7:-4] != 'tmp'])
 
+        break_list = {'VERB': 2000, 'NOUN': 1800, 'ADJ': 1600, 'DET': 1400, 'ADV': 1200, 'AUX': 1000}
+        # tag_list = [word_tag for word_tag in sen_tag if (word_tag[0] not in punc ) or (word_tag[1] not in [*break_list.keys()] )]
         tag_list = [word_tag for word_tag in sen_tag if word_tag[0] not in punc]
+        
         n_tag = len(tag_list)
 
         if n_chunk != n_tag:
-            print("Please check chunked files!!!")
+            print("Inconsistent number of chunks and tags. Please check chunked files!!!")
+            print('Tags are: ' + str(n_tag))
             print(tag_list)
+            print('Chunks are: ' + str(n_chunk))
             import pdb
             pdb.set_trace()
         else:
@@ -383,7 +388,10 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                         trimmed_sound = sound[start_trim:duration_chunk - end_trim]
 
                     if chunk_ind == com_chunk_ind:
-                        censor_start = len(combined_sounds) / 1000
+                        try:
+                            censor_start = len(combined_sounds) / 1000
+                        except:
+                            censor_start = 0.0
 
                     if com_chunk_ind == 0:
                         combined_sounds = trimmed_sound
@@ -431,8 +439,6 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
 
     empty_sen_df.to_pickle(folder_path + 'article_beep.pkl')
 
-    import pdb
-    pdb.set_trace()
     all_beep_df = pd.concat([all_beep_df, empty_sen_df], ignore_index=True)
 
     col_name.pop(col_name.index(('META_INFO', 'tag_list')))
@@ -459,7 +465,7 @@ def audio_to_chunk(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
         min_amp = audio_onedim(audio_name, wav=True, metric='dBFS', pflag=False)
 
         sound_file = AudioSegment.from_wav(audio_name)
-        audio_chunks = split_on_silence(sound_file, min_silence_len=390,silence_thresh=np.floor(min_amp))
+        audio_chunks = split_on_silence(sound_file, min_silence_len=380,silence_thresh=np.floor(min_amp))
 
         for i, chunk in enumerate(audio_chunks):
             chunk_folder_path = sen_folder_path + 'chunk/'
