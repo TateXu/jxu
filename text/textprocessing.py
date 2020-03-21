@@ -10,7 +10,7 @@ import spacy
 
 def stemming_word(vocab):
     
-    nlp = spacy.load('de')
+    nlp = spacy.load('de')# nlp = spacy.load('de_core_news_md')
     doc = nlp(vocab)
 
     return doc[0].lemma_
@@ -32,7 +32,8 @@ def mismatching(subject_answer, correct_answer, language='en'):
 
     score = {}
     answer_list = find_synonym(correct_answer, language)
-    
+    answer_list[correct_answer] = [correct_answer]
+
     max_score = {} 
     for key_word, value in answer_list.items():
         score[key_word] = [np.round(difflib.SequenceMatcher(None, subject_answer, vocab).ratio(), 4) for vocab in value]

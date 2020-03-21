@@ -14,6 +14,11 @@ from pydub import AudioSegment
 import shutil
 import pandas as pd
 from pydub.silence import split_on_silence
+import re
+
+from scipy.io import wavfile # scipy library to read wav files
+
+
 
 
 def speed_change(sound, speed=1.0):
@@ -134,6 +139,53 @@ def wav_concat(infiles, outfile, nchn=1, samplewidth=2, sps=44100):
     del wfile, output, data, ind
 
     return print("Output file:" + outfile)
+
+
+
+def audio_spec(AudioName):
+    # Not self-written, refered from: 
+    # https://stackoverflow.com/questions/24382832/audio-spectrum-extraction-from-audio-file-by-python
+
+    fs, Audiodata = wavfile.read(AudioName)
+
+    # Plot the audio signal in time
+    import matplotlib.pyplot as plt
+    plt.plot(Audiodata)
+    plt.title('Audio signal in time',size=16)
+
+    # spectrum
+    from scipy.fftpack import fft # fourier transform
+    n = len(Audiodata) 
+    AudioFreq = fft(Audiodata)
+    AudioFreq = AudioFreq[0:int(np.ceil((n+1)/2.0))] #Half of the spectrum
+    MagFreq = np.abs(AudioFreq) # Magnitude
+    MagFreq = MagFreq / float(n)
+    # power spectrum
+    MagFreq = MagFreq**2
+    if n % 2 > 0: # ffte odd 
+        MagFreq[1:len(MagFreq)] = MagFreq[1:len(MagFreq)] * 2
+    else:# fft even
+        MagFreq[1:len(MagFreq) -1] = MagFreq[1:len(MagFreq) - 1] * 2 
+
+    plt.figure()
+    freqAxis = np.arange(0,int(np.ceil((n+1)/2.0)), 1.0) * (fs / n);
+    plt.plot(freqAxis/1000.0, 10*np.log10(MagFreq)) #Power spectrum
+    plt.xlabel('Frequency (kHz)'); plt.ylabel('Power spectrum (dB)');
+
+
+    #Spectrogram
+    from scipy import signal
+    N = 512 #Number of point in the fft
+    f, t, Sxx = signal.spectrogram(Audiodata, fs,window = signal.blackman(N),nfft=N)
+    plt.figure()
+    plt.pcolormesh(t, f,10*np.log10(Sxx)) # dB spectrogram
+    #plt.pcolormesh(t, f,Sxx) # Lineal spectrogram
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [seg]')
+    plt.title('Spectrogram with scipy.signal',size=16);
+
+    plt.show()
+
 
 
 def audio_onedim(filename, wav=True, metric='default', pflag=True, sps=44100.0):
@@ -295,7 +347,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
 
 
 def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/', article_id=0, audio_rate=1.0,
-                   pitch=0.0, beep_word_type='VERB', sps=24000, beep_freq=40.0, vol=0.3):
+                   pitch=0.0, beep_word_type='VERB', sps=24000, beep_freq=40.0, vol=1.0):
 
     folder_path = file_root + 'article_{0}_speed_{1}_pitch_{2}/'.format(article_id, audio_rate, pitch)
     n_audiofile = len([name for name in os.listdir(folder_path) if name[:-1] == 'sentence_'])
@@ -303,6 +355,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                 ('META_INFO', 'audio_rate'), ('META_INFO', 'pitch'), ('META_INFO', 'language'),
                 ('META_INFO', 'tag_list'), ('META_INFO', 'n_tag'),
                 ('SENTENCE_INFO', 'article_id'), ('SENTENCE_INFO', 'sen_id'), ('SENTENCE_INFO', 'sen_content'),
+                ('SENTENCE_INFO', 'beeped_sen_content'),
                 ('SENTENCE_INFO', 'beep_word_type'), ('SENTENCE_INFO', 'beeped_word'), ('SENTENCE_INFO', 'beeped_word_duration'), 
                 ('SENTENCE_INFO', 'beeped_word_timestamp_start'), ('SENTENCE_INFO', 'beeped_word_timestamp_end'),
                 ('SENTENCE_INFO', 'sentence_duration'),
@@ -401,6 +454,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                     if chunk_ind == com_chunk_ind:
                         censor_end = len(combined_sounds) / 1000
 
+                beeped_sentence = re.sub(r'(?is)' + beep_ind[itr_ind][1][0], '[MASK]', sen_content)
 
                 new_fname = sen_folder_path + 'sentence_{0}_syn_{1}_{2}.wav'.format(sen_ind, beep_word_type, itr_ind)
                 combined_sounds.export(new_fname, format="wav")
@@ -415,6 +469,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                         ('SENTENCE_INFO', 'article_id'): [article_id],
                         ('SENTENCE_INFO', 'sen_id'): [sen_ind],
                         ('SENTENCE_INFO', 'sen_content'): [sen_content],
+                        ('SENTENCE_INFO', 'beeped_sen_content'): [beeped_sentence],
                         ('SENTENCE_INFO', 'beep_word_type'): [beep_word_type],
                         ('SENTENCE_INFO', 'beeped_word'): [beep_ind[itr_ind][1][0]],
                         ('SENTENCE_INFO', 'beeped_word_duration'): [duration],
