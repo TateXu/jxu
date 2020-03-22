@@ -1,5 +1,14 @@
 import os
+import time
 
+def timer(func):
+    def wrapper(*args, **kargs):
+        start_time = time.time()
+        f = func(*args, **kargs)
+        exec_time = time.time() - start_time
+        print(exec_time)
+        return f
+    return wrapper
 
 def create_folder(folder_path):
 
