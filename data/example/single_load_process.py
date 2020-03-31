@@ -369,7 +369,8 @@ pdb.set_trace()
 for nr_run in range(4):
     plot_joint_t_freq([X['RS']['open'][nr_run], X['RS']['close'][nr_run]], channel=picks,
                       colorbar=False, fmin=0.0, save=True, fmax=70.0,
-                      tmin=30.0, tmax=180.0, fig_name='RS_open_vs_close_Run_' + str(nr_run) + '.pdf')
+                      tmin=30.0, tmax=180.0,
+                      fig_name=path + 'RS_open_vs_close_Run_' + str(nr_run) + '.pdf')
 
 for state in ['open', 'close']:
     for nr_run in range(4):
@@ -383,7 +384,7 @@ for state in ['open', 'close']:
                   (30.0, 70.0, 'Gamma (30-70))'),
                   (8.9, 9.1, 'Peak Frequency (9Hz)')],
             tmin=30.0, tmax=180.0, picks='eeg',
-            fig_name='RS_' + state + '_run_' + str(nr_run) + '.pdf',
+            fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
             fig_unit_height=3, save=True,
             fig_unit_width=3, fig_height=None, fig_width=None)
 
