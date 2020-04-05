@@ -254,10 +254,10 @@ for bandpass in filters:
                               picks=picks, verbose=False, fir_design='firwin')
 
 """
-load = True  # True
+load_raw = False  # True
 
 path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
-if load:
+if load_raw:
     raw = eeg_loader(subject=0, session=1)
 
     filters = [(0.1, 90)]
@@ -268,20 +268,36 @@ if load:
     # filter data
 
     raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
-    pdb.set_trace()
     print('Start filtering!')
+
     raw_f = raw.copy().filter(fmin, fmax, method='fir', verbose=False, fir_design='firwin')
     raw_f.notch_filter(freqs=np.arange(50, 249, 50), picks='eeg')
 
-    raw_f.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
     print('Removing common average!')
 
-    raw_ca = raw_f.copy().set_eeg_reference(ref_channels='average')
+    raw_f.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
+    montage = mne.channels.read_montage("standard_1005")
+    raw_f.rename_channels({'O9': 'I1', 'O10': 'I2'})
+    raw_f.set_montage(montage)
+    raw_f.rename_channels({'I1': 'O9', 'I2': 'O10'})
+    # raw_f.info['bads'] = []
+    # raw_clean.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
+    raw_f.set_channel_types({'TP7': 'stim', 'TP8': 'stim',
+                             'TTP7h': 'stim', 'TTP8h': 'stim',
+                             'TPP7h': 'stim', 'TPP8h': 'stim',
+                             'T8': 'stim', 'TPP9h': 'stim',
+                             'P7': 'stim', 'AFp1': 'stim'})
 
-    # ori_data_eog = raw_f.get_data()[-2:,:]
-    # ori_data = raw_f.pick(picks='eeg').get_data()
-    # ca_data_eog = raw_ca.get_data()[-2:,:]
-    # ca_data = raw_ca.copy().pick(picks='eeg').get_data()
+
+    raw_ca = raw_f.copy().set_eeg_reference(ref_channels='average')
+    pdb.set_trace()
+
+
+    ori_data_eog = raw_f.get_data()[-2:,:]
+    ori_data = raw_f.pick(picks='eeg').get_data()
+    ca_data_eog = raw_ca.get_data()[-2:,:]
+    ca_data = raw_ca.copy().pick(picks='eeg').get_data()
+    pdb.set_trace()
 
     data_run_0_1 = raw_ca[:, : 2446629]
     data_run_2 = raw_ca[:, 2578697:3503294]
@@ -300,36 +316,49 @@ if load:
 
     raw_clean = raw_run_0_1.copy()
     raw_clean.append([raw_run_2, raw_run_3])
-    pdb.set_trace()
 
+    # raw_clean.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
     trigger_detector(raw_clean)
+    pdb.set_trace()
+    # raw_clean.save(path + 'ZWS_SESSION_1_clean_raw.fif')
 
+
+    # if load_filtered:
+    # raw_clean = mne.io.read_raw_fif(path + 'ZWS_SESSION_1_clean_raw.fif', preload=True)
     epoch_list = {'Cali_trial_start': [30, 20],
                   'RS_intro_start': [190, 8],
                   'QA_trial_start': [30, 160]}
 
     X = {}
+
     events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
 
-    montage = mne.channels.read_montage("standard_1005")
-    raw_clean.rename_channels({'O9': 'I1', 'O10': 'I2'})
-    raw_clean.set_montage(montage)
-    raw_clean.rename_channels({'I1': 'O9', 'I2': 'O10'})
-    raw_clean.info['bads'] = ['TPP9h', 'P7', 'AFp1']
-    # raw_clean.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
-    raw_clean.set_channel_types({'TP7': 'stim', 'TP8': 'stim',
-                                 'TTP7h': 'stim', 'TTP8h': 'stim',
-                                 'TPP7h': 'stim', 'TPP8h': 'stim',
-                                 'T8': 'stim'})
-    # raw_clean.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
+    pdb.set_trace()
 
     for ind, (key, val) in enumerate(epoch_list.items()):
         epochs = mne.Epochs(raw_clean, events_clean,
                             event_id=[event_dict_expand[key]],
                             tmin=0, tmax=val[0], baseline=None, proj=False,
                             preload=True, verbose=False, on_missing='ignore')
+        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+
+        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+        epoch_annot = []
+        for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
+            epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
+            epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
+
+        epochs.all_annot = epoch_annot
+        pdb.set_trace()
+
+        if len(epochs.all_annot) != len(epochs):
+            raise ValueError("Unconsistent number of annot and epochs")
         if ind == 0:
-            X['Calibration'] = [epochs[:10], epochs[10:]]
+            X['Calibration'] = []
+            for nr_run in range(2):
+                tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
+                tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
+                X['Calibration'].append(tmp)
         elif ind == 1:
             X['RS'] = {}
             rs_open_start = events_clean[np.where(
@@ -344,33 +373,50 @@ if load:
             for state in default_rs_order:
                 X['RS'][state] = epochs[np.asarray(rs_order) == state]
         elif ind == 2:
-            X['QA'] = [epochs[:40], epochs[40: 80],
-                       epochs[80: 120], epochs[120: 160]]
+            X['QA'] = []
+            for nr_run in range(4):
+                tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
+                tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
+                X['QA'].append(tmp)
 
-    with open(path + 'data.pkl', 'wb') as f:
+    with open(path + '/data_w_annot.pkl', 'wb') as f:
         pickle.dump(X, f)
     print('saved!')
-pdb.set_trace()
-with open(path + 'data.pkl', 'rb') as f:
+    pdb.set_trace()
+
+with open(path + '/data_w_annot.pkl', 'rb') as f:
     X = pickle.load(f)
 
+picks = ['Pz', 'Fz']  # , 'CP5', 'CP6'
 """
-full_chn = X['RS']['open'][0].info['ch_names']
-exclude = ['Audio', 'tACS', 'EOG151', 'EOG152', 'TP7', 'TP8', 'TTP7h', 'TTP8h',
-           'TPP7h', 'TPP8h', 'TPP9h', 'P7', 'AFP1']
+for nr_run in range(4):
+    for nr_trial in range(1, 40):
 
-picks = list(set(full_chn) - set(exclude))
+        plot_joint_t_freq([X['QA'][nr_run][nr_trial]], channel=picks,
+                          colorbar=False, fmin=0.0, save=True, fmax=70.0,
+                          tmin=0.0, tmax=28.0,
+                          fig_name=path + 'Results/QA_Run_' + str(nr_run) + '_T' + str(nr_trial) + '.pdf')
+        
+        plot_joint_psd(
+            X['QA'][nr_run][nr_trial],
+            freq=[(1.0, 4.0, 'Delta (1-4)'),
+                  (4.0, 8.0, 'Theta (4-8)'),
+                  (8.0, 14.0, 'Alpha (8-14)'),
+                  (14.0, 20.0, 'Low Beta (14-20)'),
+                  (20.0, 30.0, 'High Beta (20-30)'),
+                  (30.0, 70.0, 'Gamma (30-70))'),
+                  (8.9, 9.1, 'Peak Frequency (9Hz)')],
+            tmin=30.0, tmax=180.0, picks='eeg',
+            fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
+            fig_unit_height=3, save=True,
+            fig_unit_width=3, fig_height=None, fig_width=None)
 """
-
-picks = ['Pz', 'Fz']
-
 pdb.set_trace()
-"""
 for nr_run in range(4):
     plot_joint_t_freq([X['RS']['open'][nr_run], X['RS']['close'][nr_run]], channel=picks,
                       colorbar=False, fmin=0.0, save=True, fmax=70.0,
                       tmin=30.0, tmax=180.0,
-                      fig_name=path + 'RS_open_vs_close_Run_' + str(nr_run) + '.pdf')
+                      fig_name=path + 'Results/new/RS_open_vs_close_Run_' + str(nr_run) + '.pdf')
 
 for state in ['open', 'close']:
     for nr_run in range(4):
@@ -384,15 +430,108 @@ for state in ['open', 'close']:
                   (30.0, 70.0, 'Gamma (30-70))'),
                   (8.9, 9.1, 'Peak Frequency (9Hz)')],
             tmin=30.0, tmax=180.0, picks='eeg',
-            fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
+            fig_name=path + 'Results/new/RS_' + state + '_run_' + str(nr_run) + '.pdf',
             fig_unit_height=3, save=True,
             fig_unit_width=3, fig_height=None, fig_width=None)
 
-"""
+
+""" # , 'CP5', 'CP6'
+cali_trial = np.asarray([[114, 132, 93 , 173, 139, 174, 50, 16, 57, 118], [136, 34, 167, 133, 88, 78, 134, 25, 67, 104]])
+
+trigger = X['QA'][0].all_annot
+
+meta_infomat = np.zeros([160, 3], dtype=float)  # sentence_length, cen_start, cen_dur
+
+for nr_trial in range(160):
+    trigger[nr_trial][:, -1] == 44
+    time = trigger[nr_trial][:, 0] / 500.0
+    ind_q_start = np.where(trigger[nr_trial][:, -1] == 44)[0]
+    ind_cen_start = np.where(trigger[nr_trial][:, -1] == 50)[0]
+    ind_cen_end = np.where(trigger[nr_trial][:, -1] == 51)[0]
+    ind_beep_start = np.where(trigger[nr_trial][:, -1] == 46)[0]
+
+    meta_infomat[nr_trial, 0] = time[ind_beep_start] - 0.4 - time[ind_q_start]
+    meta_infomat[nr_trial, 1] = time[ind_cen_start] - time[ind_q_start]
+    meta_infomat[nr_trial, 2] = time[ind_cen_end] - time[ind_cen_start]
+
+
+import pandas as pd
+extract_df = pd.read_pickle('Q_Session_1_exp_180.pkl')
+censor_start = extract_df['SENTENCE_INFO']['beeped_word_timestamp_start'].values
+censor_dur = extract_df['SENTENCE_INFO']['beeped_word_duration'].values
+sen_duration = extract_df['SENTENCE_INFO']['sentence_duration'].values
+sen_text = extract_df['SENTENCE_INFO']['sen_content'].values
+
+
+prior_info = np.asarray([sen_duration, censor_start, censor_dur, np.arange(0, 180, 1)]).T
+all_unique_match_list = np.empty((0, 2))
+all_multi_match_list = np.empty((0, 2))
+overlap_list = []
+for list_trial in [range(80), range(80, 120), range(120, 160)]:
+
+    match_list = []
+    exceed_list = []
+    zero_cnt = 0 
+    exceed_cnt = 0
+    for ind in list_trial:
+        cen_s = meta_infomat[ind, 1]
+        cen_d = meta_infomat[ind, 2]
+        sen_len = meta_infomat[ind, 0]
+
+        cen_d_ind = np.where(np.abs(cen_d - prior_info[:, 2]) < 0.063)[0]
+        after_cen_d = prior_info[cen_d_ind]
+        cen_s_ind = np.where(np.abs(cen_s - after_cen_d[:, 1]) < 0.063)[0]
+        after_cen_s = after_cen_d[cen_s_ind]
+        sen_len_ind = np.where(np.abs(sen_len - after_cen_s[:, 0]) < 0.063)[0]
+        after_sen_len = after_cen_s[sen_len_ind]
+        # print('------------' + str(ind) + '------------')
+        if after_sen_len.shape[0] == 1:
+            # print('Trigger info: ' + ', '.join([str(val) for val in meta_infomat[ind]]))
+            # print('Matched info: ' + ', '.join([str(val) for val in prior_info[int(after_sen_len[:, -1])] ]))
+            match_list.append([ind, int(after_sen_len[:, -1])])
+        else:
+            # print('Trigger info: ' + ', '.join([str(val) for val in meta_infomat[ind]]))
+            if after_sen_len.shape[0] == 0:
+                zero_cnt += 1
+            elif after_sen_len.shape[0] > 1:
+                exceed_cnt += 1
+                for ex in after_sen_len[:, -1]:
+                    exceed_list.append([ind, int(ex)])
+            # print(after_sen_len[:, -1])
+
+    match_list = np.asarray(match_list)
+    exceed_list = np.asarray(exceed_list)
+    set(cali_trial[0,:]).intersection(set(exceed_list[:,1]))
+    overlap_list.append(set(match_list[:,1]).intersection(set(exceed_list[:,1])))
+    print(np.unique(match_list[:,1]).shape)
+    print(len(match_list))
+    print(zero_cnt)
+    print(exceed_cnt)
+    all_unique_match_list = np.vstack((all_unique_match_list, match_list))
+    all_multi_match_list = np.vstack((all_multi_match_list, exceed_list))
+    pdb.set_trace()
+print(overlap_list)
+
+
+np.sort(meta_infomat[:,0])
+for nr_run in range(2):
+    for nr_trial in range(1, 10):
+        plot_joint_t_freq([X['Calibration'][nr_run][nr_trial]], channel=picks,
+                          colorbar=False, fmin=0.0, save=True, fmax=70.0,
+                          tmin=0.0, tmax=28.0,
+                          fig_name=path + 'Results/Cali_Run_' + str(nr_run) + '_T' + str(nr_trial) + '.pdf')
 
 pdb.set_trace()
 """
 
+
+pdb.set_trace()
+"""
+full_chn = X['RS']['open'][0].info['ch_names']
+exclude = ['Audio', 'tACS', 'EOG151', 'EOG152', 'TP7', 'TP8', 'TTP7h', 'TTP8h',
+           'TPP7h', 'TPP8h', 'TPP9h', 'P7', 'AFP1']
+
+picks = list(set(full_chn) - set(exclude))
 from scipy import signal
 import matplotlib.pyplot as plt
 import numpy as np
