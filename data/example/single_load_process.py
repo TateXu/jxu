@@ -255,6 +255,9 @@ for bandpass in filters:
 
 """
 load_raw = False  # True
+save_raw_data = False
+load_raw_data = True
+
 
 path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
 if load_raw:
@@ -267,14 +270,27 @@ if load_raw:
     fmin, fmax = filters[0]
     # filter data
 
+    """
+    1. Filter type (high-pass, low-pass, band-pass, band-stop, FIR, IIR)
+    2. Cutoff frequency (including definition)
+    3. Filter order (or length)
+    4. Roll-off or transition bandwidth
+    5. Passband ripple and stopband attenuation
+    6. Filter delay (zero-phase, linear-phase, non-linear phase) and causality
+    7. Direction of computation (one-pass forward/reverse, or two-pass forward and reverse)
+
+
+    A non-causal, i.e, two-pass forward and reverse, 5th order Butterworth BP filter between 0.1Hz to 90Hz with transition band 0.1Hz (L) and 90*0.25=18Hz (H). 
+    """
+
     raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
-    print('Start filtering!')
-    iir_params = dict(order=5, ftype='butter')
+    print('------- Start filtering-------')
+    iir_params = dict(order=5, ftype='butter')  # , rp=1.
     raw_f = raw.copy().filter(l_freq=fmin, h_freq=fmax, method='iir', iir_params=iir_params, verbose=False)
     # raw_f = raw.copy().filter(fmin, fmax, method='fir', verbose=False, fir_design='firwin')
-    raw_f.notch_filter(freqs=np.arange(50, 249, 50), picks='eeg')
+    raw_f.notch_filter(freqs=np.arange(50, 99, 50), picks='eeg')
 
-    print('Removing common average!')
+    print('------- Setting Montage -------')
 
     raw_f.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
     montage = mne.channels.read_montage("standard_1005")
@@ -283,23 +299,23 @@ if load_raw:
     raw_f.rename_channels({'I1': 'O9', 'I2': 'O10'})
     # raw_f.info['bads'] = []
     # raw_clean.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
+
+    # Excluding criteria: White noise or not, i.e., a flat spectrum?
     raw_f.set_channel_types({'TP7': 'stim', 'TP8': 'stim',
                              'TTP7h': 'stim', 'TTP8h': 'stim',
                              'TPP7h': 'stim', 'TPP8h': 'stim',
                              'T8': 'stim', 'TPP9h': 'stim',
                              'P7': 'stim', 'AFp1': 'stim'})
 
-
+    print('------- Removing common average -------')
     raw_ca = raw_f.copy().set_eeg_reference(ref_channels='average')
-    pdb.set_trace()
 
-
-    ori_data_eog = raw_f.get_data()[-2:,:]
-    ori_data = raw_f.pick(picks='eeg').get_data()
-    ca_data_eog = raw_ca.get_data()[-2:,:]
-    ca_data = raw_ca.copy().pick(picks='eeg').get_data()
-    pdb.set_trace()
-
+    # ori_data_eog = raw_f.get_data()[-2:,:]
+    # ori_data = raw_f.pick(picks='eeg').get_data()
+    # ca_data_eog = raw_ca.get_data()[-2:,:]
+    # ca_data = raw_ca.copy().pick(picks='eeg').get_data()
+    # pdb.set_trace()
+    print('------- Croping and concatenating raw files -------')
     data_run_0_1 = raw_ca[:, : 2446629]
     data_run_2 = raw_ca[:, 2578697:3503294]
     data_run_3 = raw_ca[:, 3552652:]
@@ -317,73 +333,114 @@ if load_raw:
 
     raw_clean = raw_run_0_1.copy()
     raw_clean.append([raw_run_2, raw_run_3])
-
-    # raw_clean.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
     trigger_detector(raw_clean)
-    pdb.set_trace()
-    # raw_clean.save(path + 'ZWS_SESSION_1_clean_raw.fif')
+
+if save_raw_data:
+
+    print('------- Saving the raw data into pickle files -------')
+    max_file_size = 1.8
+    save_filename = path + '/raw_clean_' 
+    raw_size = 8 * len(raw_clean) * raw_clean.info['nchan'] / (1024**3)
+    nr_save_raw = int(np.ceil(raw_size / max_file_size))
+
+    hard_limit = int(max_file_size *  (1024**3) / raw_clean.info['nchan'] / 8)
+
+    for save_ind in range(nr_save_raw):
+        start_ind = hard_limit * save_ind
+        end_ind = start_ind + hard_limit if save_ind != nr_save_raw - 1 else len(raw_clean)
+        data_save = raw_clean[:, start_ind: end_ind]
+        ts_save = data_save[1]
+        raw_seg = raw_clean.copy().crop(tmin=ts_save[0], tmax=ts_save[-1], include_tmax=True)
+
+        with open(save_filename + str(save_ind) + '.pkl', 'wb') as f:
+            pickle.dump(raw_seg, f)
+        print(str(save_ind + 1) + '/' + str(nr_save_raw) + ' saved!')    
+
+if load_raw_data:
+    print('------- Loading the raw data from pickle files -------')
+    nr_load_raw = 3
+    load_filename = path + '/raw_clean_'
+    for load_ind in range(nr_load_raw):
+        print('Loading ' + str(load_ind + 1) + '/' + str(nr_load_raw) + '!')    
+        with open(load_filename + str(load_ind) + '.pkl', 'rb') as f:
+            temp = pickle.load(f)
+        if load_ind == 0:
+            all_raw_data = temp
+        else:
+            all_raw_data.append(temp)
+    del temp
+    print('Loading completed!')
+    all_raw_data.annotations.delete(
+        np.concatenate(
+            (np.where(all_raw_data.annotations.description == 'BAD boundary')[0],
+             np.where(all_raw_data.annotations.description == 'EDGE boundary')[0])))
+    trigger_detector(all_raw_data)
+# 'BAD boundary', 'EDGE boundary'
+
+raw_clean = all_raw_data
+
+print('------- Epoching the raw files -------')
+epoch_list = {'Cali_trial_start': [30, 20],
+              'RS_intro_start': [190, 8],
+              'QA_trial_start': [30, 160]}
+
+X = {}
+
+events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
 
 
-    # if load_filtered:
-    # raw_clean = mne.io.read_raw_fif(path + 'ZWS_SESSION_1_clean_raw.fif', preload=True)
-    epoch_list = {'Cali_trial_start': [30, 20],
-                  'RS_intro_start': [190, 8],
-                  'QA_trial_start': [30, 160]}
-
-    X = {}
-
-    events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
-
-    pdb.set_trace()
-
-    for ind, (key, val) in enumerate(epoch_list.items()):
-        epochs = mne.Epochs(raw_clean, events_clean,
-                            event_id=[event_dict_expand[key]],
-                            tmin=0, tmax=val[0], baseline=None, proj=False,
-                            preload=True, verbose=False, on_missing='ignore')
-        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
-
-        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
-        epoch_annot = []
-        for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
-            epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
-            epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
-
-        epochs.all_annot = epoch_annot
+for ind, (key, val) in enumerate(epoch_list.items()):
+    epochs = mne.Epochs(raw_clean, events_clean,
+                        event_id=[event_dict_expand[key]],
+                        tmin=0, tmax=val[0], baseline=None, proj=False,
+                        preload=True, verbose=False, on_missing='ignore')
+    if len(epochs) != val[1]:
         pdb.set_trace()
+        raise ValueError('Number of epochs is not consistent with the number of predefined number!')
+    event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
 
-        if len(epochs.all_annot) != len(epochs):
-            raise ValueError("Unconsistent number of annot and epochs")
-        if ind == 0:
-            X['Calibration'] = []
-            for nr_run in range(2):
-                tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
-                tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
-                X['Calibration'].append(tmp)
-        elif ind == 1:
-            X['RS'] = {}
-            rs_open_start = events_clean[np.where(
-                events_clean[:, 2] == 32)[0], :]
-            rs_close_start = events_clean[np.where(
-                events_clean[:, 2] == 34)[0], :]
+    event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+    epoch_annot = []
+    for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
+        epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
+        epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
 
-            default_rs_order = ['open', 'close']
-            rs_order = []
-            [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
+    epochs.all_annot = epoch_annot
 
-            for state in default_rs_order:
-                X['RS'][state] = epochs[np.asarray(rs_order) == state]
-        elif ind == 2:
-            X['QA'] = []
-            for nr_run in range(4):
-                tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
-                tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
-                X['QA'].append(tmp)
+    if len(epochs.all_annot) != len(epochs):
+        raise ValueError("Unconsistent number of annot and epochs")
+    if ind == 0:
+        X['Calibration'] = []
+        for nr_run in range(2):
+            tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
+            tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
+            X['Calibration'].append(tmp)
+        del tmp
+    elif ind == 1:
+        X['RS'] = {}
+        rs_open_start = events_clean[np.where(
+            events_clean[:, 2] == 32)[0], :]
+        rs_close_start = events_clean[np.where(
+            events_clean[:, 2] == 34)[0], :]
 
-    # with open(path + '/data_w_annot.pkl', 'wb') as f:
-    #     pickle.dump(X, f)
-    # print('saved!')
-    pdb.set_trace()
+        default_rs_order = ['open', 'close']
+        rs_order = []
+        [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
+
+        for state in default_rs_order:
+            X['RS'][state] = epochs[np.asarray(rs_order) == state]
+    elif ind == 2:
+        X['QA'] = []
+        for nr_run in range(4):
+            tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
+            tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
+            X['QA'].append(tmp)
+        del tmp
+pdb.set_trace()
+with open(path + '/data_w_annot.pkl', 'wb') as f:
+    pickle.dump(X, f)
+print('saved!')
+pdb.set_trace()
 
 with open(path + '/data_w_annot.pkl', 'rb') as f:
     X = pickle.load(f)
