@@ -137,9 +137,9 @@ def plot_joint_psd(raw_file, freq=[(0.0, 70.0)], nfft=1000, save=False,
 
 
 def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
-                      n_overlap=None, colorbar=True, save=False,
+                      n_overlap=None, colorbar=True, save=False, bg_text='',
                       tmin=None, tmax=None, t_step=None, fmin=0.0, fmax=70.0,
-                      num_t_step=None, fig_name='test.pdf'):
+                      num_t_step=None, trigger_annot=None, fig_name='test.pdf'):
 
     if not isinstance(raw_file, list):
         raw_file = [raw_file]
@@ -172,7 +172,7 @@ def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
     nr_raw = len(raw_file) * len(channel)
     xlabel, ylabel, title, scale, rotation, axis_lim = [], [], [], [], [], []
     xlabel += [['', 'Time/s'], ['', 'Time/s']] * nr_raw
-    ylabel += [['Amplitude', 'Frequency/Hz'], ['', 'Amplitude/uV']] * nr_raw
+    ylabel += [['Amplitude/dB', 'Frequency/Hz'], ['', '']] * nr_raw
     title += [['Spectrum', 'Short Time Fourier Transform'], ['Electrodes Location', 'Amplitude of EEG signal']] * nr_raw
 
     scale += [[[4.3, 2], [1, 1]], [[1, 1], [1, 1]]] * nr_raw
@@ -185,8 +185,8 @@ def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
     xticks += [[None, np.linspace(tmin, tmax, num_t_step)],
                [None, np.linspace(tmin, tmax, num_t_step)]] * nr_raw
 
-    xticklabels += [[None, [str(i) for i in np.linspace(tmin, tmax, num_t_step)]],
-                    [None, [str(i) for i in np.linspace(tmin, tmax, num_t_step)]]] * nr_raw
+    xticklabels += [[None, ["{:.2f}".format(i) for i in np.linspace(tmin, tmax, num_t_step)]],
+                    [None, ["{:.2f}".format(i) for i in np.linspace(tmin, tmax, num_t_step)]]] * nr_raw
 
     xticks = np.asarray(xticks)
     xticklabels = np.asarray(xticklabels)
@@ -208,14 +208,15 @@ def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
 
         pick_eeg = sig_raw.get_data(picks=picks) * 1e6
 
-        stft_f, stft_t, Zxx = signal.stft(pick_eeg, fs,
+        stft_f, stft_t, Zxx = signal.stft(pick_eeg, fs, nfft=nfft,
                                           nperseg=n_perseg, noverlap=n_overlap)
+
+        amp_part = np.abs(Zxx[0][0][min_f_samp: max_f_samp + 1,min_t_samp: max_t_samp + 1])
         stft_fig = axes[ind_raw * 2, 1].pcolormesh(
             stft_t[min_t_samp: max_t_samp + 1],
             stft_f[min_f_samp: max_f_samp + 1],
-            np.abs(Zxx[0][0][min_f_samp: max_f_samp + 1,
-                             min_t_samp: max_t_samp + 1]),
-            vmin=0, vmax=6)
+            amp_part, vmin=0, vmax=30)  # amp_part.max()
+        axes[ind_raw * 2, 1].text(x=tmax-(tmax-tmin)/10, y=fmax-(fmax-fmin)/10, s=bg_text, color='r')
         if colorbar:
             plt.colorbar(mappable=stft_fig, ax=axes[ind_raw * 2, 1],
                          orientation='vertical',
@@ -225,27 +226,87 @@ def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
                          estimate='amplitude',
                          tmin=tmin, tmax=tmax,
                          fmin=fmin, fmax=fmax, show=False)
+        axes[ind_raw * 2, 0].set_xlim([fmin, fmax])
+
         sig_raw.info['bads'] = picks
         sig_raw.plot_sensors(show=False, show_names=False,kind='select',
-                             axes=axes[ind_raw * 2 + 1, 0],
-                             title=sig_chn)
+                             axes=axes[ind_raw * 2 + 1, 0], title=None)
         raw_ts = sig_raw.copy().resample(sfreq=down_fs).get_data(picks=picks) * 1e6
-
-        axes[ind_raw * 2, 0].set_xlim([fmin, fmax])
-        axes[ind_raw * 2 + 1, 1].plot(np.arange(tmin * down_fs, tmax * down_fs + 1, 1),
+        if trigger_annot is None:
+            axes[ind_raw * 2 + 1, 1].plot(np.arange(tmin * down_fs, tmax * down_fs + 1, 1),
             raw_ts[0][0][int(tmin * down_fs): int(tmax * down_fs) + 1])
 
-        axes[ind_raw * 2 + 1, 0].set_title('Channel: ' + sig_chn)
+            axes[ind_raw * 2 + 1, 0].set_title('Channel: ' + sig_chn)
 
-        axes[ind_raw * 2 + 1, 1].set_xlim([tmin * down_fs, tmax * down_fs + 1])
-        axes[ind_raw * 2 + 1, 1].set_xticks(down_fs * xticks[ind_raw * 2 + 1, 1])
-        axes[ind_raw * 2 + 1, 1].set_xticklabels(xticklabels[ind_raw * 2 + 1, 1])
+            axes[ind_raw * 2 + 1, 1].set_xlim([tmin * down_fs, tmax * down_fs + 1])
+            axes[ind_raw * 2 + 1, 1].set_xticks(down_fs * xticks[ind_raw * 2 + 1, 1])
+            axes[ind_raw * 2 + 1, 1].set_xticklabels(xticklabels[ind_raw * 2 + 1, 1])
+        else:
+            axes[ind_raw * 2 + 1, 1].set_xticks([])
+            axes[ind_raw * 2 + 1, 1].set_yticks([])
+            axes[ind_raw * 2 + 1, 1].set_xlabel('')
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.2, hspace=0.2)
+    if trigger_annot is not None:
+
+        for ind_raw, (sig_raw, sig_chn) in enumerate(product(raw_file, channel)):
+                raw_ts = sig_raw.copy().resample(sfreq=down_fs).get_data(picks=picks) * 1e6
+
+                import matplotlib.gridspec as gs
+                inner = gs.GridSpecFromSubplotSpec(2, 1, subplot_spec=axes[ind_raw * 2 + 1, 1], wspace=0, hspace=0.2, height_ratios=[1, 6], width_ratios=None)
+
+                trigger_ax = fig.add_subplot(inner[0])
+                ts_ax = fig.add_subplot(inner[1])
+
+                # trigger_ax = plt.Subplot(fig, inner[0])
+                # ts_ax = plt.Subplot(fig, inner[1])
+                # fig.add_subplot(trigger_ax)
+                # fig.add_subplot(ts_ax)
+
+                trigger_color = {'44': 'r',
+                                 '45': 'r',
+                                 '50': 'b',
+                                 '51': 'b',
+                                 '48': 'k',
+                                 '49': 'k'}
+
+                legend_dict = {'44': 'Q', '50': 'Cen.', '48': 'Rec'}
+                line_list = []
+                legend_list = []
+
+                for trigger_row in trigger_annot:
+                    if not str(trigger_row[1]) in [*trigger_color.keys()]:
+                        continue   
+                    if str(trigger_row[1]) in [*legend_dict.keys()]:
+                        line = trigger_ax.arrow(trigger_row[0] / fs, 0, 0, 1, color=trigger_color[str(trigger_row[1])], width=0.03, head_length=0.03)
+                        line_list.append(line)
+                        legend_list.append(legend_dict[str(trigger_row[1])])
+                    else:
+                        trigger_ax.arrow(trigger_row[0] / fs, 1, 0, -1, color=trigger_color[str(trigger_row[1])], width=0.03, head_length=0.03)
+
+                trigger_ax.legend(tuple(line_list), tuple(legend_list), loc='upper center', ncol=3)
+                trigger_ax.set_xlim([tmin, tmax])
+                trigger_ax.set_ylim([-0.2, 1.2])
+                trigger_ax.set_xticks([])
+                trigger_ax.set_yticks([])
+                ts_ax.plot(np.arange(tmin * down_fs, tmax * down_fs + 1, 1),
+                    raw_ts[0][0][int(tmin * down_fs): int(tmax * down_fs) + 1])
+
+                axes[ind_raw * 2 + 1, 0].set_title('Channel: ' + sig_chn)
+
+                ts_ax.set_xlim([tmin * down_fs, tmax * down_fs + 1])
+                ts_ax.set_xticks(down_fs * xticks[ind_raw * 2 + 1, 1])
+                ts_ax.set_xticklabels(xticklabels[ind_raw * 2 + 1, 1])
+                ts_ax.set_ylabel('Amplitude/uV')
     if save:
+        print('Ready to save!')
+        import time
+        t1 = time.time()
         fig.savefig(fig_name)
-        print('Figure saved!')
+        print('Figure saved! Time: ' + str(time.time() - t1))
+
+
 """
 for bandpass in filters:
     fmin, fmax = bandpass
@@ -256,8 +317,8 @@ for bandpass in filters:
 """
 load_raw = False  # True
 save_raw_data = False
-load_raw_data = True
-
+load_raw_data = False
+epoch_raw_data = False
 
 path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
 if load_raw:
@@ -375,106 +436,108 @@ if load_raw_data:
             (np.where(all_raw_data.annotations.description == 'BAD boundary')[0],
              np.where(all_raw_data.annotations.description == 'EDGE boundary')[0])))
     trigger_detector(all_raw_data)
-# 'BAD boundary', 'EDGE boundary'
+    raw_clean = all_raw_data
+    # 'BAD boundary', 'EDGE boundary'
 
-raw_clean = all_raw_data
+if epoch_raw_data:
 
-print('------- Epoching the raw files -------')
-epoch_list = {'Cali_trial_start': [30, 20],
-              'RS_intro_start': [190, 8],
-              'QA_trial_start': [30, 160]}
+    print('------- Epoching the raw files -------')
+    epoch_list = {'Cali_trial_start': [30, 20],
+                  'RS_intro_start': [190, 8],
+                  'QA_trial_start': [30, 160]}
 
-X = {}
+    X = {}
+    events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
 
-events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
+    for ind, (key, val) in enumerate(epoch_list.items()):
+        epochs = mne.Epochs(raw_clean, events_clean,
+                            event_id=[event_dict_expand[key]],
+                            tmin=0, tmax=val[0], baseline=None, proj=False,
+                            preload=True, verbose=False, on_missing='ignore')
+        if len(epochs) != val[1]:
+            pdb.set_trace()
+            raise ValueError('Number of epochs is not consistent with the number of predefined number!')
+        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
 
+        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+        epoch_annot = []
+        for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
+            epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
+            epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
 
-for ind, (key, val) in enumerate(epoch_list.items()):
-    epochs = mne.Epochs(raw_clean, events_clean,
-                        event_id=[event_dict_expand[key]],
-                        tmin=0, tmax=val[0], baseline=None, proj=False,
-                        preload=True, verbose=False, on_missing='ignore')
-    if len(epochs) != val[1]:
+        epochs.all_annot = epoch_annot
+
+        if len(epochs.all_annot) != len(epochs):
+            raise ValueError("Unconsistent number of annot and epochs")
+        if ind == 0:
+            X['Calibration'] = []
+            for nr_run in range(2):
+                tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
+                tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
+                X['Calibration'].append(tmp)
+            del tmp
+        elif ind == 1:
+            X['RS'] = {}
+            rs_open_start = events_clean[np.where(
+                events_clean[:, 2] == 32)[0], :]
+            rs_close_start = events_clean[np.where(
+                events_clean[:, 2] == 34)[0], :]
+
+            default_rs_order = ['open', 'close']
+            rs_order = []
+            [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
+
+            for state in default_rs_order:
+                X['RS'][state] = epochs[np.asarray(rs_order) == state]
+        elif ind == 2:
+            X['QA'] = []
+            for nr_run in range(4):
+                tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
+                tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
+                X['QA'].append(tmp)
+            del tmp
         pdb.set_trace()
-        raise ValueError('Number of epochs is not consistent with the number of predefined number!')
-    event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+        with open(path + '/data_w_annot.pkl', 'wb') as f:
+            pickle.dump(X, f)
+        print('saved!')
 
-    event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
-    epoch_annot = []
-    for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
-        epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
-        epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
-
-    epochs.all_annot = epoch_annot
-
-    if len(epochs.all_annot) != len(epochs):
-        raise ValueError("Unconsistent number of annot and epochs")
-    if ind == 0:
-        X['Calibration'] = []
-        for nr_run in range(2):
-            tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
-            tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
-            X['Calibration'].append(tmp)
-        del tmp
-    elif ind == 1:
-        X['RS'] = {}
-        rs_open_start = events_clean[np.where(
-            events_clean[:, 2] == 32)[0], :]
-        rs_close_start = events_clean[np.where(
-            events_clean[:, 2] == 34)[0], :]
-
-        default_rs_order = ['open', 'close']
-        rs_order = []
-        [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
-
-        for state in default_rs_order:
-            X['RS'][state] = epochs[np.asarray(rs_order) == state]
-    elif ind == 2:
-        X['QA'] = []
-        for nr_run in range(4):
-            tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
-            tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
-            X['QA'].append(tmp)
-        del tmp
-pdb.set_trace()
-with open(path + '/data_w_annot.pkl', 'wb') as f:
-    pickle.dump(X, f)
-print('saved!')
-pdb.set_trace()
 
 with open(path + '/data_w_annot.pkl', 'rb') as f:
     X = pickle.load(f)
 
-picks = ['Pz', 'Fz']  # , 'CP5', 'CP6'
-"""
-for nr_run in range(4):
-    for nr_trial in range(1, 40):
+picks = ['Pz', 'Fz', 'CP5', 'CP6']  # , 'CP5', 'CP6'
 
-        plot_joint_t_freq([X['QA'][nr_run][nr_trial]], channel=picks,
+
+
+for nr_run in range(2):
+    for nr_trial in range(10):
+        plot_joint_t_freq([X['QA'][nr_run][nr_trial]],
+                          trigger_annot=X['QA'][nr_run].run_annot[nr_trial][:,[0, -1]],
+                          channel=picks, bg_text='Q&A',
                           colorbar=False, fmin=0.0, save=True, fmax=70.0,
-                          tmin=0.0, tmax=28.0,
-                          fig_name=path + 'Results/QA_Run_' + str(nr_run) + '_T' + str(nr_trial) + '.pdf')
+                          tmin=0.0, tmax=28.0, n_perseg=50,
+                          fig_name=path + 'Results/new_qa/QA_Run_' + str(nr_run) + '_T' + str(nr_trial) + '.pdf')
         
-        plot_joint_psd(
-            X['QA'][nr_run][nr_trial],
-            freq=[(1.0, 4.0, 'Delta (1-4)'),
-                  (4.0, 8.0, 'Theta (4-8)'),
-                  (8.0, 14.0, 'Alpha (8-14)'),
-                  (14.0, 20.0, 'Low Beta (14-20)'),
-                  (20.0, 30.0, 'High Beta (20-30)'),
-                  (30.0, 70.0, 'Gamma (30-70))'),
-                  (8.9, 9.1, 'Peak Frequency (9Hz)')],
-            tmin=30.0, tmax=180.0, picks='eeg',
-            fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
-            fig_unit_height=3, save=True,
-            fig_unit_width=3, fig_height=None, fig_width=None)
+        # plot_joint_psd(
+        #     X['QA'][nr_run][nr_trial],
+        #     freq=[(1.0, 4.0, 'Delta (1-4)'),
+        #           (4.0, 8.0, 'Theta (4-8)'),
+        #           (8.0, 14.0, 'Alpha (8-14)'),
+        #           (14.0, 20.0, 'Low Beta (14-20)'),
+        #           (20.0, 30.0, 'High Beta (20-30)'),
+        #           (30.0, 70.0, 'Gamma (30-70))'),
+        #           (8.9, 9.1, 'Peak Frequency (9Hz)')],
+        #     tmin=30.0, tmax=180.0, picks='eeg',
+        #     fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
+        #     fig_unit_height=3, save=True,
+        #     fig_unit_width=3, fig_height=None, fig_width=None)
 
 pdb.set_trace()
 for nr_run in range(4):
     plot_joint_t_freq([X['RS']['open'][nr_run], X['RS']['close'][nr_run]], channel=picks,
                       colorbar=False, fmin=0.0, save=True, fmax=70.0,
                       tmin=30.0, tmax=180.0,
-                      fig_name=path + 'Results/new/RS_open_vs_close_Run_' + str(nr_run) + '.pdf')
+                      fig_name=path + 'Results/new/RS_open_vs_close_Run_' + str(nr_run) + '.png')
 
 for state in ['open', 'close']:
     for nr_run in range(4):
@@ -632,7 +695,7 @@ for state in ['open', 'close']:
 
     pdb.set_trace()
 
-""" 
+
 chn = 'CP6'
 sig_raw = X['RS'][state][1]
 data = sig_raw.copy().pick(picks=[chn]).get_data()
