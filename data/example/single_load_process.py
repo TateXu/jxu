@@ -269,8 +269,9 @@ if load_raw:
 
     raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
     print('Start filtering!')
-
-    raw_f = raw.copy().filter(fmin, fmax, method='fir', verbose=False, fir_design='firwin')
+    iir_params = dict(order=5, ftype='butter')
+    raw_f = raw.copy().filter(l_freq=fmin, h_freq=fmax, method='iir', iir_params=iir_params, verbose=False)
+    # raw_f = raw.copy().filter(fmin, fmax, method='fir', verbose=False, fir_design='firwin')
     raw_f.notch_filter(freqs=np.arange(50, 249, 50), picks='eeg')
 
     print('Removing common average!')
@@ -379,9 +380,9 @@ if load_raw:
                 tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
                 X['QA'].append(tmp)
 
-    with open(path + '/data_w_annot.pkl', 'wb') as f:
-        pickle.dump(X, f)
-    print('saved!')
+    # with open(path + '/data_w_annot.pkl', 'wb') as f:
+    #     pickle.dump(X, f)
+    # print('saved!')
     pdb.set_trace()
 
 with open(path + '/data_w_annot.pkl', 'rb') as f:
@@ -410,7 +411,7 @@ for nr_run in range(4):
             fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
             fig_unit_height=3, save=True,
             fig_unit_width=3, fig_height=None, fig_width=None)
-"""
+
 pdb.set_trace()
 for nr_run in range(4):
     plot_joint_t_freq([X['RS']['open'][nr_run], X['RS']['close'][nr_run]], channel=picks,
@@ -433,9 +434,201 @@ for state in ['open', 'close']:
             fig_name=path + 'Results/new/RS_' + state + '_run_' + str(nr_run) + '.pdf',
             fig_unit_height=3, save=True,
             fig_unit_width=3, fig_height=None, fig_width=None)
+"""
+plot_raw_psd_single = False
+if plot_raw_psd_single:
+    raw = eeg_loader(subject=0, session=1)
+
+    filters = [(0.1, 90)]
+
+    trigger_detector(raw)
+
+    fmin, fmax = filters[0]
+    # filter data
+
+    raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
+    print('Start filtering!')
+
+    raw_f = raw.copy().filter(fmin, fmax, method='fir', verbose=False, fir_design='firwin')
+    raw_f.notch_filter(freqs=np.arange(50, 99, 50), picks='eeg')
+
+    print('Removing common average!')
+
+    raw_f.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
+    montage = mne.channels.read_montage("standard_1005")
+    raw_f.rename_channels({'O9': 'I1', 'O10': 'I2'})
+    raw_f.set_montage(montage)
+    raw_f.rename_channels({'I1': 'O9', 'I2': 'O10'})
+    # raw_f.info['bads'] = []
+
+    # raw_f.set_channel_types({'TP7': 'stim', 'TP8': 'stim',
+    #                          'TTP7h': 'stim', 'TTP8h': 'stim',
+    #                          'TPP7h': 'stim', 'TPP8h': 'stim',
+    #                          'T8': 'stim', 'TPP9h': 'stim',
+    #                          'P7': 'stim', 'AFp1': 'stim'})
 
 
-""" # , 'CP5', 'CP6'
+    # raw_ca = raw_f.copy().set_eeg_reference(ref_channels='average')
+    raw_ca = raw_f
+    data_run_0_1 = raw_ca[:, : 2446629]
+    # data_run_2 = raw_ca[:, 2578697:3503294]
+    # data_run_3 = raw_ca[:, 3552652:]
+
+    ts_run_0_1 = data_run_0_1[1]
+    # ts_run_2 = data_run_2[1]
+    # ts_run_3 = data_run_3[1]
+
+    # ori_data_eog = raw_f.get_data()[-2:,:]
+    # ori_data = raw_f.pick(picks='eeg').get_data()
+    # ca_data_eog = raw_ca.get_data()[-2:,:]
+    # ca_data = raw_ca.copy().pick(picks='eeg').get_data()
+
+
+    raw_run_0_1 = raw_ca.copy().crop(
+        tmin=ts_run_0_1[0], tmax=ts_run_0_1[-1], include_tmax=True)
+    # raw_run_2 = raw_ca.copy().crop(
+    #     tmin=ts_run_2[0], tmax=ts_run_2[-1], include_tmax=True)
+    # raw_run_3 = raw_ca.copy().crop(
+    #     tmin=ts_run_3[0], tmax=ts_run_3[-1], include_tmax=True)
+
+    raw_clean = raw_run_0_1.copy()
+    # raw_clean.append([raw_run_2, raw_run_3])
+
+    trigger_detector(raw_clean)
+    events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
+   
+
+    epoch_list = {'RS_intro_start': [190, 8]}
+
+    X = {}
+
+
+    key = 'RS_intro_start'
+    val = [190, 8]
+    ind = 0
+    epochs = mne.Epochs(raw_clean, events_clean,
+                        event_id=[event_dict_expand[key]],
+                        tmin=0, tmax=val[0], baseline=None, proj=False,
+                        preload=True, verbose=False, on_missing='ignore')
+    event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+
+    epoch_annot = []
+    for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
+        epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
+        epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
+
+    epochs.all_annot = epoch_annot
+
+
+    X['RS'] = {}
+    rs_open_start = events_clean[np.where(events_clean[:, 2] == 32)[0], :]
+    rs_close_start = events_clean[np.where(events_clean[:, 2] == 34)[0], :]
+
+    default_rs_order = ['open', 'close']
+    rs_order = []
+    [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
+
+    for state in default_rs_order:
+        X['RS'][state] = epochs[np.asarray(rs_order) == state]
+    
+    with open(path + '/data_raw_half.pkl', 'wb') as f:
+        pickle.dump(X, f)
+    print('saved!')
+
+    pdb.set_trace()
+
+with open(path + '/data_raw_half.pkl', 'rb') as f:
+    X = pickle.load(f)
+print('saved!')
+
+for state in ['open', 'close']:
+
+    fig = plt.figure(figsize=(10, 126 * 2.5))
+    from matplotlib import pyplot as plt
+    import matplotlib.gridspec as gs
+    gs0 = gs.GridSpec(nrows=126, ncols=2, width_ratios=[1, 3])
+    axes = []
+    for ax_row in range(126):
+        axes_sub = []
+        for ax_col in range(2):
+            axes_sub.append(fig.add_subplot(gs0[ax_row, ax_col]))
+        axes.append(axes_sub)
+
+    axes = np.asarray(axes)
+    sig_raw = X['RS'][state][1]
+    ind_cnt = 0
+    pdb.set_trace()
+    for chn in X['RS']['open'].info['ch_names']:
+        if chn in ['Audio', 'tACS', 'EOG151', 'EOG152']:
+            continue
+        if not isinstance(chn, list):
+            chn = [chn]
+
+        sig_raw.plot_psd(average=False, spatial_colors=True, picks=chn, estimate='power',tmin=30, tmax=180, fmin=0, fmax=30, show=False, ax=axes[ind_cnt, 1])
+        sig_raw.info['bads'] = chn
+        sig_raw.plot_sensors(show=False, show_names=False,kind='select',
+                             axes=axes[ind_cnt, 0],
+                             title=chn[0])
+        ind_cnt += 1
+    pdb.set_trace()
+    fig.savefig(state + '30_raw.pdf')
+
+    pdb.set_trace()
+
+""" 
+chn = 'CP6'
+sig_raw = X['RS'][state][1]
+data = sig_raw.copy().pick(picks=[chn]).get_data()
+
+
+data = data.squeeze()
+x = data[30*500: 35*500]
+# plt.plot(x)
+sp_x = np.fft.fft(x)
+plt.plot(sp_x, 'r--')
+plt.show()
+
+
+
+import matplotlib.pyplot as plt
+t = np.arange(500)
+f = 10.0
+fs = 500.0
+x_sin = 0.024397 * np.sin(2 * np.pi * f * t / fs + 0.9 * np.pi)
+sp_x = np.fft.fft(x_sin)
+plt.plot(sp_x, 'r--')
+
+from PyEMD import EMD
+emd = EMD(std_thr=0.0000001, range_thr=0.0000005)
+imfs = emd(data.squeeze())
+
+fig = plt.figure()
+for nr_row in range(7): ax0 = fig.add_subplot(8, 2, nr_row*2 + 1); ax0.plot(imfs[nr_row][15000:25500]); ax1 = fig.add_subplot(8, 2, nr_row*2 + 2); ax1.plot(np.log(np.abs(np.fft.fft(imfs[nr_row][15000:25500]))));
+ax0 = fig.add_subplot(8, 2, 15); ax0.plot(data.squeeze()[15000:25500]); ax1 = fig.add_subplot(8, 2, 16); ax1.plot(np.log(np.abs(np.fft.fft(data.squeeze()[15000:25500]))));
+
+
+ax00 = fig.add_subplot(7, 2, 1)
+ax10 = fig.add_subplot(223)
+
+ax01 = fig.add_subplot(222)
+ax11 = fig.add_subplot(224)
+
+
+for i in range(8):
+signal = imfs[0][15000:15500]
+spec = np.log(np.abs(np.fft.fft(signal)))
+
+
+
+ax00.plot(imfs[0][15000:15500])
+ax10.plot(imfs[1][15000:15500])
+
+ax01.plot(np.log(np.abs(np.fft.fft(imfs[0][15000:15500]))) )
+ax11.plot(np.log(np.abs(np.fft.fft(imfs[1][15000:15500]))) )
+
+
+
+# , 'CP5', 'CP6'
 cali_trial = np.asarray([[114, 132, 93 , 173, 139, 174, 50, 16, 57, 118], [136, 34, 167, 133, 88, 78, 134, 25, 67, 104]])
 
 trigger = X['QA'][0].all_annot
