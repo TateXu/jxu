@@ -10,315 +10,26 @@ from mne.time_frequency.tfr import morlet
 from mne.viz import plot_filter, plot_ideal_filter
 import warnings
 import pickle
+from jxu.data.utils import *
 from jxu.viz.utils import *
+import argparse
 import pdb
 
-nr_events_predefined = {'Pre_run': 1,
-                        'Post_run': 1,
-                        'Run': 4,
-                        'Block': 8,
-                        'Cali_intro': 2,
-                        'Cali_trial': 20,
-                        'Cali_display': 20,
-                        'Cali_ans': 20,
-                        'Cali_rec': 20,
-                        'Stim': 4,
-                        'Sham': 4,
-                        'Fade_in': 4,
-                        'Fade_out': 4,
-                        'Stable_stim': 4,
-                        'RS_intro': 8,
-                        'RS_open': 4,
-                        'RS_close': 4,
-                        'QA_intro': 4,
-                        'QA_trial': 160,
-                        'QA_audio': 160,
-                        'QA_ans': 160,
-                        'QA_rec': 160,
-                        'QA_cen_word': 160,
-                        'Pause': 6,
-                        'Break': 180}
 
-event_dict = {'Pre_run': [0, 1],
-              'Post_run': [2, 3],
-              'Run': [4, 5],
-              'Block': [6, 7],
-              'Cali_intro': [10, 11],
-              'Cali_trial': [12, 13],
-              'Cali_display': [14, 15],
-              'Cali_ans': [16, 17],
-              'Cali_rec': [18, 19],
-              'Stim': [20, 21],
-              'Sham': [22, 23],
-              'Fade_in': [24, 25],
-              'Fade_out': [26, 27],
-              'Stable_stim': [28, 29],
-              'RS_intro': [30, 31],
-              'RS_open': [32, 33],
-              'RS_close': [34, 35],
-              'QA_intro': [40, 41],
-              'QA_trial': [42, 43],
-              'QA_audio': [44, 45],
-              'QA_ans': [46, 47],
-              'QA_rec': [48, 49],
-              'QA_cen_word': [50, 51],
-              'Pause': [60, 61],
-              'Break': [62, 63]}
-label_dict = [*event_dict.keys()]
-event_dict_expand = {}
-for i, keys in enumerate(label_dict):
-    event_dict_expand[keys + '_start'] = event_dict[keys][0]
-    event_dict_expand[keys + '_end'] = event_dict[keys][1]
+parser = argparse.ArgumentParser(description='Processing NIBS data.', formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument('-lr', '--load_raw', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Loading completely raw data;')
+parser.add_argument('-sc', '--save_clean', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Saving filtered& cropped raw data;')
+parser.add_argument('-lc', '--load_clean', action='store_true', help='Property: flag;\nDefault=False;\nFunc: Loading filtered& cropped raw data;')
+parser.add_argument('-ec', '--epoch_clean', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Epoching filtered& cropped raw data;')
+local_args = parser.parse_args()  # '--load_raw --save_clean --load_clean --epoch_clean'.split()
 
+locals().update(vars(local_args))
 
-def trigger_detector(raw, event_dict=event_dict,
-                     event_dict_expand=event_dict_expand,
-                     nr_events_predefined=nr_events_predefined):
-
-    events, event_id = mne.events_from_annotations(raw)
-    label_dict = [*event_dict.keys()]
-
-    full_trigger_name_list = [*event_dict_expand.keys()]
-    full_trigger_list = [*event_dict_expand.values()]
-    presented_trigger_list = [*event_id.values()]
-
-    unpresented_trigger_list = list(
-        set(full_trigger_list).difference(
-            set(full_trigger_list).intersection(presented_trigger_list)))
-    unpresented_trigger_name_list = [full_trigger_name_list[full_trigger_list.index(tri_val)] for tri_val in unpresented_trigger_list]
-
-    warnings.warn("Following triggers are not presented in the dataset:" +
-                  ', '.join(unpresented_trigger_name_list))
-
-    for ind, (key, val) in enumerate(event_dict.items()):
-        nr_start = events[np.where(
-            events[:, 2] == val[0])[0], :].shape[0]
-        nr_end = events[np.where(
-            events[:, 2] == val[1])[0], :].shape[0]
-        std_nr = nr_events_predefined[key]
-        print(key + ', std: ' + str(std_nr) + ', s/e: ' +
-              str(nr_start) + '/' + str(nr_end))
-
-
-def plot_joint_psd(raw_file, freq=[(0.0, 70.0)], nfft=1000, save=False,
-                   tmin=None, tmax=None,
-                   fig_name='test.pdf', fig_unit_height=3, picks=None,
-                   fig_unit_width=3, fig_height=None, fig_width=None):
-
-    nr_band = len(freq)
-    if fig_height is None:
-        fig_height = 2 * fig_unit_height
-
-    if fig_width is None:
-        fig_width = nr_band * fig_unit_width
-
-    fig = plt.figure(figsize=(fig_width, fig_height))
-    axes = []
-    gs0 = gs.GridSpec(nrows=2, ncols=nr_band)
-    for ax_col in range(nr_band):
-        axes.append(fig.add_subplot(gs0[0, ax_col]))
-    axes.append(gs0[1, :])
-    axes = np.asarray(axes)
-
-    ax3 = plt.subplot(212)
-
-    raw_file.plot_psd_topomap(axes=axes[:-1], tmin=tmin, tmax=tmax,
-                              bands=freq, show=False)
-
-    raw_file.plot_psd(average=False, ax=ax3, spatial_colors=True,
-                      picks=picks, estimate='amplitude', tmin=tmin, tmax=tmax,
-                      fmin=freq[0][0], fmax=freq[-2][1], show=False)
-
-
-    if save:
-        fig.savefig(fig_name)
-        print('Figure saved!')
+pdb.set_trace()
 
 
 
-def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
-                      n_overlap=None, colorbar=True, save=False, bg_text='',
-                      tmin=None, tmax=None, t_step=None, fmin=0.0, fmax=70.0,
-                      num_t_step=None, trigger_annot=None, fig_name='test.pdf'):
-
-    if not isinstance(raw_file, list):
-        raw_file = [raw_file]
-    if not isinstance(channel, list):
-        channel = [channel]
-
-    if n_overlap is None:
-        n_overlap = n_perseg // 2.
-    if tmin is None:
-        tmin = raw_file[0].tmin
-    if tmax is None:
-        tmax = raw_file[0].tmax
-    if num_t_step is None:
-        num_t_step = 11
-    if t_step is None:
-        t_step = (tmax - tmin) / num_t_step
-
-
-    fs = raw_file[0].info['sfreq']
-    down_fs = int(fs / 5)
-
-    t_resolution = n_overlap / fs
-    f_resolution = fs / nfft
-
-    min_t_samp = int(tmin / t_resolution)
-    max_t_samp = int(tmax / t_resolution)
-    min_f_samp = int(fmin / f_resolution)
-    max_f_samp = int(fmax / f_resolution)
-
-    nr_raw = len(raw_file) * len(channel)
-    xlabel, ylabel, title, scale, rotation, axis_lim = [], [], [], [], [], []
-    xlabel += [['', 'Time/s'], ['', 'Time/s']] * nr_raw
-    ylabel += [['Amplitude/dB', 'Frequency/Hz'], ['', '']] * nr_raw
-    title += [['Spectrum', 'Short Time Fourier Transform'], ['Electrodes Location', 'Amplitude of EEG signal']] * nr_raw
-
-    scale += [[[4.3, 2], [1, 1]], [[1, 1], [1, 1]]] * nr_raw
-    rotation += [[90, 0], [0, 0]] * nr_raw
-    axis_lim += [[(0, 70, 0, 70), 0], [0, 0]] * nr_raw
-    row_ratios = []
-    row_ratios += [2, 1] * nr_raw
-
-    xticks, xticklabels = [], []
-    xticks += [[None, np.linspace(tmin, tmax, num_t_step)],
-               [None, np.linspace(tmin, tmax, num_t_step)]] * nr_raw
-
-    xticklabels += [[None, ["{:.2f}".format(i) for i in np.linspace(tmin, tmax, num_t_step)]],
-                    [None, ["{:.2f}".format(i) for i in np.linspace(tmin, tmax, num_t_step)]]] * nr_raw
-
-    xticks = np.asarray(xticks)
-    xticklabels = np.asarray(xticklabels)
-    fig, axes, gs = fig_init(nr_row=2 * nr_raw, nr_col=2,
-                             row_ratios=row_ratios, col_ratios=[1, 3],
-                             fig_unit_height=3, fig_unit_width=3,
-                             xlabel=np.asarray(xlabel),
-                             ylabel=np.asarray(ylabel),
-                             title=np.asarray(title),
-                             scale=np.asarray(scale),
-                             rotation=np.asarray(rotation),
-                             axis_lim=np.asarray(axis_lim))
-
-    for ind_raw, (sig_raw, sig_chn) in enumerate(product(raw_file, channel)):
-        print(ind_raw)
-        print(sig_raw)
-        print(sig_chn)
-        picks = [sig_chn]
-
-        pick_eeg = sig_raw.get_data(picks=picks) * 1e6
-
-        stft_f, stft_t, Zxx = signal.stft(pick_eeg, fs, nfft=nfft,
-                                          nperseg=n_perseg, noverlap=n_overlap)
-
-        amp_part = np.abs(Zxx[0][0][min_f_samp: max_f_samp + 1,min_t_samp: max_t_samp + 1])
-        stft_fig = axes[ind_raw * 2, 1].pcolormesh(
-            stft_t[min_t_samp: max_t_samp + 1],
-            stft_f[min_f_samp: max_f_samp + 1],
-            amp_part, vmin=0, vmax=30)  # amp_part.max()
-        axes[ind_raw * 2, 1].text(x=tmax-(tmax-tmin)/10, y=fmax-(fmax-fmin)/10, s=bg_text, color='r')
-        if colorbar:
-            plt.colorbar(mappable=stft_fig, ax=axes[ind_raw * 2, 1],
-                         orientation='vertical',
-                         use_gridspec=True)
-        sig_raw.plot_psd(average=False, ax=axes[ind_raw * 2, 0],
-                         spatial_colors=True, picks=picks,
-                         estimate='amplitude',
-                         tmin=tmin, tmax=tmax,
-                         fmin=fmin, fmax=fmax, show=False)
-        axes[ind_raw * 2, 0].set_xlim([fmin, fmax])
-
-        sig_raw.info['bads'] = picks
-        sig_raw.plot_sensors(show=False, show_names=False,kind='select',
-                             axes=axes[ind_raw * 2 + 1, 0], title=None)
-        raw_ts = sig_raw.copy().resample(sfreq=down_fs).get_data(picks=picks) * 1e6
-        if trigger_annot is None:
-            axes[ind_raw * 2 + 1, 1].plot(np.arange(tmin * down_fs, tmax * down_fs + 1, 1),
-            raw_ts[0][0][int(tmin * down_fs): int(tmax * down_fs) + 1])
-
-            axes[ind_raw * 2 + 1, 0].set_title('Channel: ' + sig_chn)
-
-            axes[ind_raw * 2 + 1, 1].set_xlim([tmin * down_fs, tmax * down_fs + 1])
-            axes[ind_raw * 2 + 1, 1].set_xticks(down_fs * xticks[ind_raw * 2 + 1, 1])
-            axes[ind_raw * 2 + 1, 1].set_xticklabels(xticklabels[ind_raw * 2 + 1, 1])
-        else:
-            axes[ind_raw * 2 + 1, 1].set_xticks([])
-            axes[ind_raw * 2 + 1, 1].set_yticks([])
-            axes[ind_raw * 2 + 1, 1].set_xlabel('')
-
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=0.2, hspace=0.2)
-    if trigger_annot is not None:
-
-        for ind_raw, (sig_raw, sig_chn) in enumerate(product(raw_file, channel)):
-                raw_ts = sig_raw.copy().resample(sfreq=down_fs).get_data(picks=picks) * 1e6
-
-                import matplotlib.gridspec as gs
-                inner = gs.GridSpecFromSubplotSpec(2, 1, subplot_spec=axes[ind_raw * 2 + 1, 1], wspace=0, hspace=0.2, height_ratios=[1, 6], width_ratios=None)
-
-                trigger_ax = fig.add_subplot(inner[0])
-                ts_ax = fig.add_subplot(inner[1])
-
-                # trigger_ax = plt.Subplot(fig, inner[0])
-                # ts_ax = plt.Subplot(fig, inner[1])
-                # fig.add_subplot(trigger_ax)
-                # fig.add_subplot(ts_ax)
-
-                trigger_color = {'44': 'r',
-                                 '45': 'r',
-                                 '50': 'b',
-                                 '51': 'b',
-                                 '48': 'k',
-                                 '49': 'k'}
-
-                legend_dict = {'44': 'Q', '50': 'Cen.', '48': 'Rec'}
-                line_list = []
-                legend_list = []
-
-                for trigger_row in trigger_annot:
-                    if not str(trigger_row[1]) in [*trigger_color.keys()]:
-                        continue   
-                    if str(trigger_row[1]) in [*legend_dict.keys()]:
-                        line = trigger_ax.arrow(trigger_row[0] / fs, 0, 0, 1, color=trigger_color[str(trigger_row[1])], width=0.03, head_length=0.03)
-                        line_list.append(line)
-                        legend_list.append(legend_dict[str(trigger_row[1])])
-                    else:
-                        trigger_ax.arrow(trigger_row[0] / fs, 1, 0, -1, color=trigger_color[str(trigger_row[1])], width=0.03, head_length=0.03)
-
-                trigger_ax.legend(tuple(line_list), tuple(legend_list), loc='upper center', ncol=3)
-                trigger_ax.set_xlim([tmin, tmax])
-                trigger_ax.set_ylim([-0.2, 1.2])
-                trigger_ax.set_xticks([])
-                trigger_ax.set_yticks([])
-                ts_ax.plot(np.arange(tmin * down_fs, tmax * down_fs + 1, 1),
-                    raw_ts[0][0][int(tmin * down_fs): int(tmax * down_fs) + 1])
-
-                axes[ind_raw * 2 + 1, 0].set_title('Channel: ' + sig_chn)
-
-                ts_ax.set_xlim([tmin * down_fs, tmax * down_fs + 1])
-                ts_ax.set_xticks(down_fs * xticks[ind_raw * 2 + 1, 1])
-                ts_ax.set_xticklabels(xticklabels[ind_raw * 2 + 1, 1])
-                ts_ax.set_ylabel('Amplitude/uV')
-    if save:
-        print('Ready to save!')
-        import time
-        t1 = time.time()
-        fig.savefig(fig_name)
-        print('Figure saved! Time: ' + str(time.time() - t1))
-
-
-"""
-for bandpass in filters:
-    fmin, fmax = bandpass
-    # filter data
-    raw_f = raw.copy().filter(fmin, fmax, method='fir',
-                              picks=picks, verbose=False, fir_design='firwin')
-
-"""
-load_raw = False  # True
-save_raw_data = False
-load_raw_data = False
-epoch_raw_data = False
+nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
 path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
 if load_raw:
@@ -326,7 +37,9 @@ if load_raw:
 
     filters = [(0.1, 90)]
 
-    trigger_detector(raw)
+    trigger_detector(raw, event_dict=event_dict,
+                     event_dict_expand=event_dict_expand,
+                     nr_events_predefined=nr_events_predefined)
 
     fmin, fmax = filters[0]
     # filter data
@@ -396,7 +109,7 @@ if load_raw:
     raw_clean.append([raw_run_2, raw_run_3])
     trigger_detector(raw_clean)
 
-if save_raw_data:
+if save_clean:
 
     print('------- Saving the raw data into pickle files -------')
     max_file_size = 1.8
@@ -417,7 +130,7 @@ if save_raw_data:
             pickle.dump(raw_seg, f)
         print(str(save_ind + 1) + '/' + str(nr_save_raw) + ' saved!')    
 
-if load_raw_data:
+if load_clean:
     print('------- Loading the raw data from pickle files -------')
     nr_load_raw = 3
     load_filename = path + '/raw_clean_'
@@ -439,7 +152,7 @@ if load_raw_data:
     raw_clean = all_raw_data
     # 'BAD boundary', 'EDGE boundary'
 
-if epoch_raw_data:
+if epoch_clean:
 
     print('------- Epoching the raw files -------')
     epoch_list = {'Cali_trial_start': [30, 20],
@@ -508,7 +221,7 @@ with open(path + '/data_w_annot.pkl', 'rb') as f:
 picks = ['Pz', 'Fz', 'CP5', 'CP6']  # , 'CP5', 'CP6'
 
 
-
+pdb.set_trace()
 for nr_run in range(2):
     for nr_trial in range(10):
         plot_joint_t_freq([X['QA'][nr_run][nr_trial]],
