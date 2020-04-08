@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 
 import mne
-from mne.time_frequency.tfr import morlet
-from mne.viz import plot_filter, plot_ideal_filter
+
 import warnings
 import pickle
 from jxu.data.utils import *
@@ -148,67 +147,109 @@ if load_clean:
         np.concatenate(
             (np.where(all_raw_data.annotations.description == 'BAD boundary')[0],
              np.where(all_raw_data.annotations.description == 'EDGE boundary')[0])))
-    trigger_detector(all_raw_data)
+
+    trigger_detector(all_raw_data, event_dict=event_dict,
+                     event_dict_expand=event_dict_expand,
+                     nr_events_predefined=nr_events_predefined)
     raw_clean = all_raw_data
     # 'BAD boundary', 'EDGE boundary'
 
 if epoch_clean:
 
     print('------- Epoching the raw files -------')
-    epoch_list = {'Cali_trial_start': [30, 20],
-                  'RS_intro_start': [190, 8],
-                  'QA_trial_start': [30, 160]}
+    erp_flag = True
 
+    if not erp_flag:
+        # ----- Trialwise data extraction -----------
+        epoch_list = {'Cali_trial_start': [30, 20],
+                      'RS_intro_start': [190, 8],
+                      'QA_trial_start': [30, 160]}
+    else:
+        # -------- ERP data extraction --------------
+        epoch_list = {'Cali_display_start': [1, 20],
+                      'Cali_rec_start': [1, 20],
+                      'QA_audio_start': [1, 160],
+                      'QA_rec_start': [1, 160],
+                      'QA_cen_word_start': [1, 160],
+                      'QA_ans_start': [1, 160]}
     X = {}
     events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
-
+    
+    pdb.set_trace()
     for ind, (key, val) in enumerate(epoch_list.items()):
-        epochs = mne.Epochs(raw_clean, events_clean,
-                            event_id=[event_dict_expand[key]],
-                            tmin=0, tmax=val[0], baseline=None, proj=False,
-                            preload=True, verbose=False, on_missing='ignore')
-        if len(epochs) != val[1]:
-            pdb.set_trace()
-            raise ValueError('Number of epochs is not consistent with the number of predefined number!')
-        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+        
+        if erp_flag:
+            epochs = mne.Epochs(raw_clean, events_clean,
+                    event_id=[event_dict_expand[key]],
+                    tmin=-0.5, tmax=val[0], baseline=None, proj=False,
+                    preload=True, verbose=False, on_missing='ignore')
+            X[key[:-6]] = []
+            if 'Cali' in key:
+                for nr_run in range(2):
+                    tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
+                    X[key[:-6]].append(tmp)
+                del tmp
+            elif 'QA' in key:
+                for nr_run in range(4):
+                    tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
+                    X[key[:-6]].append(tmp)
+                del tmp
 
-        event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
-        epoch_annot = []
-        for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
-            epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
-            epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
+        else:
+            epochs = mne.Epochs(raw_clean, events_clean,
+                                event_id=[event_dict_expand[key]],
+                                tmin=0, tmax=val[0], baseline=None, proj=False,
+                                preload=True, verbose=False, on_missing='ignore')
 
-        epochs.all_annot = epoch_annot
+            if len(epochs) != val[1]:
+                pdb.set_trace()
+                raise ValueError('Number of epochs is not consistent with the number of predefined number!')
+            event_end = np.where(events_clean[:, 2] == event_dict_expand[key] + 1)[0]
+            epoch_annot = []
+            for evt_ind, evt_val in enumerate(zip(epochs.selection, event_end)):
+                epoch_evt_tmp = events_clean[evt_val[0]: evt_val[1] + 1]
+                epoch_annot.append(np.hstack((np.asarray([epoch_evt_tmp[:, 0] - epoch_evt_tmp[0, 0]]).T, epoch_evt_tmp)))
 
-        if len(epochs.all_annot) != len(epochs):
-            raise ValueError("Unconsistent number of annot and epochs")
-        if ind == 0:
-            X['Calibration'] = []
-            for nr_run in range(2):
-                tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
-                tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
-                X['Calibration'].append(tmp)
-            del tmp
-        elif ind == 1:
-            X['RS'] = {}
-            rs_open_start = events_clean[np.where(
-                events_clean[:, 2] == 32)[0], :]
-            rs_close_start = events_clean[np.where(
-                events_clean[:, 2] == 34)[0], :]
+            epochs.all_annot = epoch_annot
 
-            default_rs_order = ['open', 'close']
-            rs_order = []
-            [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
+            if len(epochs.all_annot) != len(epochs):
+                raise ValueError("Unconsistent number of annot and epochs")
 
-            for state in default_rs_order:
-                X['RS'][state] = epochs[np.asarray(rs_order) == state]
-        elif ind == 2:
-            X['QA'] = []
-            for nr_run in range(4):
-                tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
-                tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
-                X['QA'].append(tmp)
-            del tmp
+            if key == 'Cali_trial_start':
+                X['Calibration'] = []
+                for nr_run in range(2):
+                    tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
+                    tmp.run_annot = epochs.all_annot[10 * nr_run: 10 * (nr_run + 1)]
+                    X['Calibration'].append(tmp)
+                del tmp
+            elif key == 'RS_intro_start':
+                X['RS'] = {}
+                rs_open_start = events_clean[np.where(
+                    events_clean[:, 2] == 32)[0], :]
+                rs_close_start = events_clean[np.where(
+                    events_clean[:, 2] == 34)[0], :]
+
+                default_rs_order = ['open', 'close']
+                rs_order = []
+                [rs_order.extend(default_rs_order[::ind]) for ind in np.sign((rs_close_start - rs_open_start)[:, 0])]
+
+                for state in default_rs_order:
+                    X['RS'][state] = epochs[np.asarray(rs_order) == state]
+            elif key == 'QA_trial_start':
+                X['QA'] = []
+                for nr_run in range(4):
+                    tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
+                    tmp.run_annot = epochs.all_annot[40 * nr_run: 40 * (nr_run + 1)]
+                    X['QA'].append(tmp)
+                del tmp
+
+
+    if erp_flag:
+        pdb.set_trace()
+        with open(path + '/data_qa_erp.pkl', 'wb') as f:
+            pickle.dump(X, f)
+        print('saved!')
+    else:
         pdb.set_trace()
         with open(path + '/data_w_annot.pkl', 'wb') as f:
             pickle.dump(X, f)
@@ -221,9 +262,10 @@ with open(path + '/data_w_annot.pkl', 'rb') as f:
 picks = ['Pz', 'Fz', 'CP5', 'CP6']  # , 'CP5', 'CP6'
 
 
-pdb.set_trace()
+
 for nr_run in range(2):
     for nr_trial in range(10):
+        pdb.set_trace()
         plot_joint_t_freq([X['QA'][nr_run][nr_trial]],
                           trigger_annot=X['QA'][nr_run].run_annot[nr_trial][:,[0, -1]],
                           channel=picks, bg_text='Q&A',

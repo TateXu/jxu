@@ -1,5 +1,6 @@
 import mne
 import numpy as np
+import warnings
 
 def nibs_event_dict():
     nr_events_predefined = {'Pre_run': 1,
