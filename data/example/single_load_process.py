@@ -20,13 +20,11 @@ parser.add_argument('-lr', '--load_raw', action='store_true', help='Property: fl
 parser.add_argument('-sc', '--save_clean', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Saving filtered& cropped raw data;')
 parser.add_argument('-lc', '--load_clean', action='store_true', help='Property: flag;\nDefault=False;\nFunc: Loading filtered& cropped raw data;')
 parser.add_argument('-ec', '--epoch_clean', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Epoching filtered& cropped raw data;')
-local_args = parser.parse_args()  # '--load_raw --save_clean --load_clean --epoch_clean'.split()
-
+parser.add_argument('-erp', '--erp_flag', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Epoching/Processing ERP signal when True;')
+local_args = parser.parse_args()
 locals().update(vars(local_args))
 
 pdb.set_trace()
-
-
 
 nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
@@ -157,7 +155,7 @@ if load_clean:
 if epoch_clean:
 
     print('------- Epoching the raw files -------')
-    erp_flag = True
+    
 
     if not erp_flag:
         # ----- Trialwise data extraction -----------
@@ -243,7 +241,6 @@ if epoch_clean:
                     X['QA'].append(tmp)
                 del tmp
 
-
     if erp_flag:
         pdb.set_trace()
         with open(path + '/data_qa_erp.pkl', 'wb') as f:
@@ -255,14 +252,17 @@ if epoch_clean:
             pickle.dump(X, f)
         print('saved!')
 
-
-with open(path + '/data_w_annot.pkl', 'rb') as f:
-    X = pickle.load(f)
+if erp_flag:
+    with open(path + '/data_qa_erp.pkl', 'rb') as f:
+        X = pickle.load(f)
+else:
+    with open(path + '/data_w_annot.pkl', 'rb') as f:
+        X = pickle.load(f)
 
 picks = ['Pz', 'Fz', 'CP5', 'CP6']  # , 'CP5', 'CP6'
 
 
-
+# plot_epochs_image(X['QA_cen_word'][3], picks=['TP10'])
 for nr_run in range(2):
     for nr_trial in range(10):
         pdb.set_trace()
