@@ -26,7 +26,6 @@ parser.add_argument('-p', '--plt_flag', action='store_true', help='Property: fla
 local_args = parser.parse_args()
 locals().update(vars(local_args))
 
-pdb.set_trace()
 
 nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
@@ -394,60 +393,48 @@ if meta_extract_flag:
         print(exceed_cnt)
         all_unique_match_list = np.vstack((all_unique_match_list, match_list))
         all_multi_match_list = np.vstack((all_multi_match_list, exceed_list))
-        pdb.set_trace()
-    print(overlap_list)
 
+    trial_list = np.asarray([[2, 117],
+                            [8, 143],
+                            [10, 3],
+                            [13, 17],
+                            [17, 146],
+                            [20, 69],
+                            [33, 130],  # 138 == 130
+                            [41, 101], 
+                            [49, 116],  # 48-80 are with not recordings.
+                            [50, 20],
+                            [54, 5],
+                            [66, 130],
+                            [67, 85],
+                            [69, 49],
+                            [72, 69],
+                            [84, 49],
+                            [85, 55],   # 55 == 135
+                            [90, 22],
+                            [107, 89],
+                            [108, 49],
+                            [116, 75],
+                            [118, 1],
+                            [119, 81],
+                            [137, 75],
+                            [140, 3],
+                            [144, 86],
+                            [150, 69],
+                            [154, 116]])
+    all_list = np.vstack((all_unique_match_list, trial_list))
+    pdb.set_trace()
+    print(overlap_list)
+    sorted_all_list = all_list[all_list[:,0].argsort()]
     np.sort(meta_infomat[:,0])
+
+    aaa = extract_df.iloc[sorted_all_list[:, 1]]
+    aaa.rename(columns={'index':'global_index'},inplace=True)
+    aaa.reset_index()
 
     pdb.set_trace()
 
 
-[2, 117]
-[8， ]
-[10, 3]
-[13, 17]
-[17, 146]
-[20, 69]
-[33, 130],  # 138 == 130
-[41, ], 
-[49, 101],  # 49-80 are with not recordings.
-[50, 20],
-[54, 5],
-[66, 130],
-[67, 85],
-[69, 49],
-[72, 69]
-
-array([[ 84,  49],
-       [ 84, 104],
-       [ 85,  55],
-       [ 85, 135],
-       [ 90,  22],
-       [ 90, 121],
-       [107,   1],
-       [107,  89],
-       [108,  49],
-       [108, 104],
-       [116,  75],
-       [116, 115],
-       [118,   1],
-       [118,  89],
-       [119,  81],
-       [119,  82]])
-
-    cali_trial = np.asarray([[114, 132, 93 , 173, 139, 174, 50, 16, 57, 118],
-                             [136, 34, 167, 133, 88, 78, 134, 25, 67, 104]])
-
-array([[137,  75],
-       [137, 115],
-       [140,   3],
-       [140, 155],
-       [144,  85],
-       [144,  86],
-       [150,  37],
-       [150,  69],
-       [154, 101],
-       [154, 116]])
 
 
 """
