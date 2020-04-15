@@ -23,11 +23,17 @@ from mne.filter import notch_filter
 def audio_denoise(filename, type='notch', basefreq=2000, increment=1000, process=False):
     if process:
         fs, Audiodata = wavfile.read(filename)
-        noisy_part = wavfile.read('noise.wav')[1]
+        noisy_part_1 = wavfile.read('noise.wav')[1]
+        noisy_part_2 = wavfile.read('noise_desk.wav')[1]
+        noisy_part_3 = wavfile.read('noise_desk_book.wav')[1]
+        noisy_part_4 = wavfile.read('noise_mouse.wav')[1]
         filtered_audio = notch_filter(Audiodata.astype(float), fs,
                                       freqs=np.arange(basefreq, (fs - 100) / 2, increment),
                                       method='fir')
-        reduced_noise = nr.reduce_noise(audio_clip=filtered_audio.astype(float), noise_clip=noisy_part.astype(float), verbose=False)
+        reduced_noise_1 = nr.reduce_noise(audio_clip=filtered_audio.astype(float), noise_clip=noisy_part_1.astype(float), verbose=False)
+        reduced_noise_2 = nr.reduce_noise(audio_clip=reduced_noise_1.astype(float), noise_clip=noisy_part_2.astype(float), verbose=False)
+        reduced_noise_3 = nr.reduce_noise(audio_clip=reduced_noise_2.astype(float), noise_clip=noisy_part_3.astype(float), verbose=False)
+        reduced_noise = nr.reduce_noise(audio_clip=reduced_noise_3.astype(float), noise_clip=noisy_part_4.astype(float), verbose=False)
         filtered_audio_int = np.int16(reduced_noise)
         sci_write(filename[:-4] + '_filtered.wav', fs, filtered_audio_int)
 
