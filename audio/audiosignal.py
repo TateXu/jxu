@@ -15,11 +15,23 @@ import shutil
 import pandas as pd
 from pydub.silence import split_on_silence
 import re
-
+from scipy.io import wavfile
+import noisereduce as nr
 from scipy.io import wavfile # scipy library to read wav files
+from mne.filter import notch_filter
 
+def audio_denoise(filename, type='notch', basefreq=2000, increment=1000, process=False):
+    if process:
+        fs, Audiodata = wavfile.read(filename)
+        noisy_part = wavfile.read('noise.wav')[1]
+        filtered_audio = notch_filter(Audiodata.astype(float), fs,
+                                      freqs=np.arange(basefreq, (fs - 100) / 2, increment),
+                                      method='fir')
+        reduced_noise = nr.reduce_noise(audio_clip=filtered_audio.astype(float), noise_clip=noisy_part.astype(float), verbose=False)
+        filtered_audio_int = np.int16(reduced_noise)
+        sci_write(filename[:-4] + '_filtered.wav', fs, filtered_audio_int)
 
-
+    return filename[:-4] + '_filtered.wav'
 
 def speed_change(sound, speed=1.0):
     # NOT SELF WRITTEN!!!!!
@@ -35,8 +47,17 @@ def speed_change(sound, speed=1.0):
      # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
-def wav_std(filename, sps=24000, channel=1):
-    subprocess.call(['ffmpeg', '-i', filename + '.wav', '-ac', str(channel), '-ar', str(sps), '-y', filename + '_new.wav'])
+def wav_std(in_filename, sps=24000, bit=16, channel=1):
+    if in_filename[-4:] == '.wav':
+        filename = in_filename[:-4]
+    else:
+        filename = in_filename
+
+    subprocess.call(['ffmpeg', '-i', filename + '.wav',
+                     '-ac', str(channel),
+                     '-ar', str(sps),
+                     '-sample_fmt', 's'+str(bit),
+                     '-y', filename + '_std.wav'])
 
 def mp3_to_wav(filename, sps=24000, channel=1):
     """
@@ -226,7 +247,7 @@ def detect_leading_silence(sound, silence_threshold=-87.0, chunk_size=5):
 
 
 # beep_generator('C5_A_tone_flat_3quater_s.wav', tone='flat', slice_duration=0.75, beep_freq=[1760.0])
-def beep_generator(filen_name, file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Soundeffect/',
+def beep_generator(file_name, file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Soundeffect/',
                    slice_duration=1.0, tone='flat', vol=0.3, sps=44100, beep_freq=440.0):
     
     if tone == 'flat':
@@ -254,7 +275,7 @@ def beep_generator(filen_name, file_root='/home/jxu/File/Data/NIBS/Stage_one/Aud
     wf_int = np.int16(wf_full * 32767)
     if not os.path.exists(file_root + 'beep/'):
         os.mkdir(file_root + 'beep/')
-    beep_file = file_root + 'beep/' + filen_name
+    beep_file = file_root + 'beep/' + file_name
     sci_write(beep_file, sps, wf_int)
 
     return print('Saved file:' + beep_file)
