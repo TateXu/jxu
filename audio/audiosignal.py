@@ -20,24 +20,29 @@ import noisereduce as nr
 from scipy.io import wavfile # scipy library to read wav files
 from mne.filter import notch_filter
 
-def audio_denoise(filename, type='notch', basefreq=2000, increment=1000, process=False):
+def audio_denoise(filename, type='notch', basefreq=2000, increment=1000, process=False, denoise_level=4):
     if process:
         fs, Audiodata = wavfile.read(filename)
-        noisy_part_1 = wavfile.read('noise.wav')[1]
-        noisy_part_2 = wavfile.read('noise_desk.wav')[1]
-        noisy_part_3 = wavfile.read('noise_desk_book.wav')[1]
-        noisy_part_4 = wavfile.read('noise_mouse.wav')[1]
-        filtered_audio = notch_filter(Audiodata.astype(float), fs,
-                                      freqs=np.arange(basefreq, (fs - 100) / 2, increment),
-                                      method='fir')
-        reduced_noise_1 = nr.reduce_noise(audio_clip=filtered_audio.astype(float), noise_clip=noisy_part_1.astype(float), verbose=False)
-        reduced_noise_2 = nr.reduce_noise(audio_clip=reduced_noise_1.astype(float), noise_clip=noisy_part_2.astype(float), verbose=False)
-        reduced_noise_3 = nr.reduce_noise(audio_clip=reduced_noise_2.astype(float), noise_clip=noisy_part_3.astype(float), verbose=False)
-        reduced_noise = nr.reduce_noise(audio_clip=reduced_noise_3.astype(float), noise_clip=noisy_part_4.astype(float), verbose=False)
-        filtered_audio_int = np.int16(reduced_noise)
-        sci_write(filename[:-4] + '_filtered.wav', fs, filtered_audio_int)
+        noisy_part = [wavfile.read('noise.wav')[1],
+                      wavfile.read('noise_desk.wav')[1],
+                      wavfile.read('noise_desk_book.wav')[1],
+                      wavfile.read('noise_mouse.wav')[1],
+                      wavfile.read('noise_walking.wav')[1],
+                      wavfile.read('noise_door_1.wav')[1],
+                      wavfile.read('noise_door_2.wav')[1]]
+        reduced_noise = notch_filter(Audiodata.astype(float), fs,
+                                     freqs=np.arange(basefreq, (fs - 100) / 2, increment),
+                                     method='fir')
+        for incre_level in range(denoise_level):
+            reduced_noise = nr.reduce_noise(audio_clip=reduced_noise.astype(float), noise_clip=noisy_part[incre_level].astype(float), verbose=False)
 
-    return filename[:-4] + '_filtered.wav'
+        filtered_audio_int = np.int16(reduced_noise)
+        sci_write(filename[:-4] + '_filtered_' + str(denoise_level) + '.wav', fs, filtered_audio_int)
+
+    try:
+        return filename[:-4] + '_filtered_' + str(denoise_level) + '.wav'
+    except:
+        raise ValueError('Please turn on the process flag for the first time denoising!')
 
 def speed_change(sound, speed=1.0):
     # NOT SELF WRITTEN!!!!!
