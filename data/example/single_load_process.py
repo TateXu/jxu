@@ -433,8 +433,16 @@ if meta_extract_flag:
     aaa.reset_index()
 
     pdb.set_trace()
+    folder_path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/Audio_Recording/Exp_data/'
 
+    with open(folder_path + 'Valid_segs/onset_list.pkl', 'rb') as f:
+        onset_list = pickle.load(f)
+    with open(folder_path + 'Valid_segs/duration_list.pkl', 'rb') as f:
+        duration_list = pickle.load(f)
+    duration_list = np.asarray(duration_list)
+    onset_list = np.asarray(onset_list)
 
+    pdb.set_trace()
 
 
 """
