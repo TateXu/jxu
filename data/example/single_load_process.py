@@ -30,6 +30,29 @@ locals().update(vars(local_args))
 nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
 path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
+load_audio_para = True
+sort_eeg_data = True
+if load_audio_para:
+    folder_path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/Audio_Recording/Exp_data/'
+
+    with open(folder_path + 'Valid_segs/onset_list.pkl', 'rb') as f:
+        onset_list = pickle.load(f)
+    with open(folder_path + 'Valid_segs/duration_list.pkl', 'rb') as f:
+        duration_list = pickle.load(f)
+    duration_list = np.asarray(duration_list)
+    onset_list = np.asarray(onset_list)
+    del folder_path
+
+    onset_sort_ind = []
+    for i in range(4):
+        temp = onset_list[40 * i: 40 * i + 40]
+        no_answer_ind = np.where(temp==None)[0]
+        answer_ind = np.where(temp[:, 1]!= None)[0]
+
+        onset_answer = temp[answer_ind]
+        sorted_onset_answer = np.vstack((onset_answer[np.argsort(onset_answer[:, 1])], temp[no_answer_ind]))
+        onset_sort_ind.append((sorted_onset_answer[:,0] - 40 * i).tolist() )
+
 if load_raw:
     raw = eeg_loader(subject=0, session=1)
 
@@ -256,22 +279,44 @@ if epoch_clean:
 if erp_flag:
     with open(path + '/data_qa_erp.pkl', 'rb') as f:
         X = pickle.load(f)
+
+    if sort_eeg_data and onset_sort_ind is not None:
+
+        for key in [*X.keys()]:
+            if 'QA' not in key:
+                continue
+            else:
+                new_key = key + '_sorted'
+                X[new_key] = []
+                for i in range(4):
+                    X[new_key].append(X[key][i][onset_sort_ind[i]])
+    pdb.set_trace()
 else:
     with open(path + '/data_w_annot.pkl', 'rb') as f:
         X = pickle.load(f)
 
-picks = ['Pz', 'Fz', 'CP5', 'CP6']  # , 'CP5', 'CP6'
+    if sort_eeg_data and onset_sort_ind is not None:
+        X['QA_sorted'] = []
+        for i in range(4):
+            X['QA_sorted'].append(X['QA'][i][onset_sort_ind[i]])
+pdb.set_trace()
+#  'QA_audio_sorted', 'QA_rec_sorted', 'QA_cen_word_sorted', 'QA_ans_sorted'
+# X['QA_rec_sorted'][0].plot_image(picks=['T7'])
+# plot_psd_topomap
+# plot_topo_image
+# X['QA_cen_word_sorted'][0][:5].plot_image(picks=['Fpz'])
+# X['QA_cen_word_sorted'][0][-5:].plot_psd_topomap(picks=['T7'])
+# X['QA_cen_word_sorted'][0].plot_psd_topomap()
 
-if erp_flag:
+if plt_flag:
+    if erp_flag:
+        X['QA_audio'][3].plot_image(picks=['Fpz'])
+        # plot_epochs_image(X['QA_cen_word'][3], picks=['TP10'])
+        # plot_epochs_image(X['QA_audio'][3], picks=['Fpz'])
+        # X['QA_audio'][3].average().plot()
+        X['Cali_display'][0].plot_image(picks=['Pz'])
 
-    X['QA_audio'][3].plot_image(picks=['Fpz'])
-    # plot_epochs_image(X['QA_cen_word'][3], picks=['TP10'])
-    # plot_epochs_image(X['QA_audio'][3], picks=['Fpz'])
-    # X['QA_audio'][3].average().plot()
-    X['Cali_display'][0].plot_image(picks=['Pz'])
-
-else:
-    if plt_flag:
+    else:
         for nr_run in range(2):
             for nr_trial in range(10):
                 plot_joint_t_freq([X['QA'][nr_run][nr_trial]],
@@ -317,7 +362,7 @@ else:
                     fig_name=path + 'Results/new/RS_' + state + '_run_' + str(nr_run) + '.pdf',
                     fig_unit_height=3, save=True,
                     fig_unit_width=3, fig_height=None, fig_width=None)
-
+pdb.set_trace()
 meta_extract_flag = True
 if meta_extract_flag: 
 
@@ -433,14 +478,7 @@ if meta_extract_flag:
     aaa.reset_index()
 
     pdb.set_trace()
-    folder_path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/Audio_Recording/Exp_data/'
 
-    with open(folder_path + 'Valid_segs/onset_list.pkl', 'rb') as f:
-        onset_list = pickle.load(f)
-    with open(folder_path + 'Valid_segs/duration_list.pkl', 'rb') as f:
-        duration_list = pickle.load(f)
-    duration_list = np.asarray(duration_list)
-    onset_list = np.asarray(onset_list)
 
     pdb.set_trace()
 

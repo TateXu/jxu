@@ -302,7 +302,7 @@ def plot_joint_t_freq(raw_file, channel='C3', n_perseg=1000, nfft=1000,
     if trigger_annot is not None:
 
         for ind_raw, (sig_raw, sig_chn) in enumerate(product(raw_file, channel)):
-                raw_ts = sig_raw.copy().resample(sfreq=down_fs).get_data(picks=picks) * 1e6
+                raw_ts = sig_raw.copy().resample(sfreq=down_fs).get_data(picks=[sig_chn]) * 1e6
 
                 import matplotlib.gridspec as gs
                 inner = gs.GridSpecFromSubplotSpec(2, 1, subplot_spec=axes[ind_raw * 2 + 1, 1], wspace=0, hspace=0.2, height_ratios=[1, 6], width_ratios=None)
