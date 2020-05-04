@@ -290,7 +290,6 @@ if erp_flag:
                 X[new_key] = []
                 for i in range(4):
                     X[new_key].append(X[key][i][onset_sort_ind[i]])
-    pdb.set_trace()
 else:
     with open(path + '/data_w_annot.pkl', 'rb') as f:
         X = pickle.load(f)
@@ -300,13 +299,43 @@ else:
         for i in range(4):
             X['QA_sorted'].append(X['QA'][i][onset_sort_ind[i]])
 pdb.set_trace()
-#  'QA_audio_sorted', 'QA_rec_sorted', 'QA_cen_word_sorted', 'QA_ans_sorted'
+# 'QA_audio_sorted', 'QA_rec_sorted', 'QA_cen_word_sorted', 'QA_ans_sorted'
 # X['QA_rec_sorted'][0].plot_image(picks=['T7'])
 # plot_psd_topomap
 # plot_topo_image
-# X['QA_cen_word_sorted'][0][:5].plot_image(picks=['Fpz'])
-# X['QA_cen_word_sorted'][0][-5:].plot_psd_topomap(picks=['T7'])
-# X['QA_cen_word_sorted'][0].plot_psd_topomap()
+import matplotlib.image as mpimg
+for name in ['audio', 'rec', 'cen_word']:
+    fig, axs = plt.subplots(nrows=3, ncols=4, constrained_layout=True)
+    for id_chn, chn in enumerate(['T7', 'CP5', 'CP6', 'Fz']):
+        for id_suffix, suffix in enumerate(['_fastest_answer', '_no_answer', '_all']):
+            fig_title = name + '_' + chn + suffix
+            file = 'a_' + fig_title + '.png'
+            axs[id_suffix, id_chn].imshow(mpimg.imread(file)) 
+            axs[id_suffix, id_chn].set_axis_off() 
+    fig.savefig('a_' + name + '.pdf')
+    pdb.set_trace()
+
+for name in ['audio', 'rec', 'cen_word']:
+    for chn in ['T7', 'CP5', 'CP6', 'Fz']:
+        fig_title = name + '_' + chn + '_fastest_answer'
+        fig = X['QA_' + name + '_sorted'][0][:5].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+        fig.savefig('a_' + fig_title + '.png')
+        fig_title = name + '_' + chn + '_no_answer'
+        fig = X['QA_' + name + '_sorted'][0][-5:].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+        fig.savefig('a_' + fig_title + '.png')
+        fig_title = name + '_' + chn + '_all'
+        fig = X['QA_' + name + '_sorted'][0].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+        fig.savefig('a_' + fig_title + '.png')
+
+pdb.set_trace()
+
+# nr_run=0
+# nr_trial = 0
+# plot_joint_t_freq(X['QA_sorted'][nr_run][nr_trial], trigger_annot=X['QA'][nr_run].run_annot[onset_sort_ind[nr_run][nr_trial]][:,[0, -1]],channel=['CP5', 'CP6', 'Fpz'],colorbar=False, fmin=0.0, save=True, fmax=70.0,tmin=0.0, tmax=28.0, n_perseg=50,fig_name='temp_tf_fastest.pdf')
+
+
+# nr_trial = -1
+# plot_joint_t_freq(X['QA_sorted'][nr_run][nr_trial], trigger_annot=X['QA'][nr_run].run_annot[onset_sort_ind[nr_run][nr_trial]][:,[0, -1]],channel=['CP5', 'CP6', 'Fpz'],colorbar=False, fmin=0.0, save=True, fmax=70.0,tmin=0.0, tmax=28.0, n_perseg=50,fig_name='temp_tf_slowest.pdf')
 
 if plt_flag:
     if erp_flag:
@@ -317,8 +346,9 @@ if plt_flag:
         X['Cali_display'][0].plot_image(picks=['Pz'])
 
     else:
-        for nr_run in range(2):
-            for nr_trial in range(10):
+        picks = ['Pz', 'Fz', 'CP5', 'CP6']
+        for nr_run in range(1, 2):
+            for nr_trial in range(2, 10):
                 plot_joint_t_freq([X['QA'][nr_run][nr_trial]],
                                   trigger_annot=X['QA'][nr_run].run_annot[nr_trial][:,[0, -1]],
                                   channel=picks, bg_text='Q&A',
@@ -326,19 +356,19 @@ if plt_flag:
                                   tmin=0.0, tmax=28.0, n_perseg=50,
                                   fig_name=path + 'Results/new_qa/QA_Run_' + str(nr_run) + '_T' + str(nr_trial) + '.pdf')
 
-                plot_joint_psd(
-                    X['QA'][nr_run][nr_trial],
-                    freq=[(1.0, 4.0, 'Delta (1-4)'),
-                          (4.0, 8.0, 'Theta (4-8)'),
-                          (8.0, 14.0, 'Alpha (8-14)'),
-                          (14.0, 20.0, 'Low Beta (14-20)'),
-                          (20.0, 30.0, 'High Beta (20-30)'),
-                          (30.0, 70.0, 'Gamma (30-70))'),
-                          (8.9, 9.1, 'Peak Frequency (9Hz)')],
-                    tmin=30.0, tmax=180.0, picks='eeg',
-                    fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
-                    fig_unit_height=3, save=True,
-                    fig_unit_width=3, fig_height=None, fig_width=None)
+                # plot_joint_psd(
+                #     X['QA'][nr_run][nr_trial],
+                #     freq=[(1.0, 4.0, 'Delta (1-4)'),
+                #           (4.0, 8.0, 'Theta (4-8)'),
+                #           (8.0, 14.0, 'Alpha (8-14)'),
+                #           (14.0, 20.0, 'Low Beta (14-20)'),
+                #           (20.0, 30.0, 'High Beta (20-30)'),
+                #           (30.0, 70.0, 'Gamma (30-70))'),
+                #           (8.9, 9.1, 'Peak Frequency (9Hz)')],
+                #     tmin=30.0, tmax=180.0, picks='eeg',
+                #     fig_name=path + 'RS_' + state + '_run_' + str(nr_run) + '.pdf',
+                #     fig_unit_height=3, save=True,
+                #     fig_unit_width=3, fig_height=None, fig_width=None)
 
         pdb.set_trace()
         for nr_run in range(4):
