@@ -208,6 +208,8 @@ def audio_spec(AudioName):
     #Spectrogram
     from scipy import signal
     N = 512 #Number of point in the fft
+    import pdb
+    pdb.set_trace()
     f, t, Sxx = signal.spectrogram(Audiodata, fs,window = signal.blackman(N),nfft=N)
     plt.figure()
     plt.pcolormesh(t, f,10*np.log10(Sxx)) # dB spectrogram
