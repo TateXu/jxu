@@ -185,6 +185,25 @@ def audio_spec(AudioName):
     plt.plot(Audiodata)
     plt.title('Audio signal in time',size=16)
 
+    from scipy.signal import hilbert, chirp
+
+    analytic_signal = hilbert(Audiodata)
+    amplitude_envelope = np.abs(analytic_signal)
+    instantaneous_phase = np.unwrap(np.angle(analytic_signal))
+    instantaneous_frequency = (np.diff(instantaneous_phase) /
+                               (2.0*np.pi) * fs)
+    fig = plt.figure()
+    ax0 = fig.add_subplot(311)
+    ax0.plot(Audiodata, label='signal')
+    ax0.plot(amplitude_envelope, label='envelope')
+    ax0.set_xlabel("time in seconds")
+    ax0.legend()
+    ax1 = fig.add_subplot(312)
+    ax1.plot(instantaneous_frequency)
+    ax1.set_title('IF')
+    ax1.set_xlabel("time in seconds")
+    plt.title('Instantaneous Audio signal',size=16)
+
     # spectrum
     from scipy.fftpack import fft # fourier transform
     n = len(Audiodata) 
