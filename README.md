@@ -1,3 +1,3 @@
 <p align="left">
-  <img src="https://github.com/DavidCdeB/Trial/blob/master/Images/extract2.svg">
+  <img src="./flowchart/audio_post_process_rec.svg">
 </p>
