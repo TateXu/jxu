@@ -29,11 +29,11 @@ locals().update(vars(local_args))
 
 nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
-path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
+path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'  # '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
 load_audio_para = True
 sort_eeg_data = True
 if load_audio_para:
-    folder_path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/Audio_Recording/Exp_data/'
+    folder_path = path + 'Audio_Recording/Exp_data/'
 
     with open(folder_path + 'Valid_segs/onset_list.pkl', 'rb') as f:
         onset_list = pickle.load(f)
@@ -303,30 +303,33 @@ pdb.set_trace()
 # X['QA_rec_sorted'][0].plot_image(picks=['T7'])
 # plot_psd_topomap
 # plot_topo_image
+
+
+
+run = 2
+for name in ['audio', 'rec', 'cen_word']:
+    for chn in ['Pz', 'Fz']:
+        fig_title = name + '_' + chn + '_fastest_answer_' + str(run)
+        fig = X['QA_' + name + '_sorted'][run][:5].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+        fig.savefig('Results/a_' + fig_title + '.pdf')
+        fig_title = name + '_' + chn + '_no_answer_' + str(run)
+        fig = X['QA_' + name + '_sorted'][run][-5:].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+        fig.savefig('Results/a_' + fig_title + '.pdf')
+        fig_title = name + '_' + chn + '_all_' + str(run)
+        fig = X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+        fig.savefig('Results/a_' + fig_title + '.pdf')
+
 import matplotlib.image as mpimg
 for name in ['audio', 'rec', 'cen_word']:
-    fig, axs = plt.subplots(nrows=3, ncols=4, constrained_layout=True)
-    for id_chn, chn in enumerate(['T7', 'CP5', 'CP6', 'Fz']):
-        for id_suffix, suffix in enumerate(['_fastest_answer', '_no_answer', '_all']):
-            fig_title = name + '_' + chn + suffix
-            file = 'a_' + fig_title + '.png'
+    fig, axs = plt.subplots(nrows=3, ncols=2, constrained_layout=True)
+    for id_chn, chn in enumerate(['Pz', 'Fz']):
+        for id_suffix, suffix in enumerate(['_fastest_answer_', '_no_answer_', '_all_']):
+            fig_title = name + '_' + chn + suffix + str(run)
+            file = 'Results/a_' + fig_title + '.pdf'
             axs[id_suffix, id_chn].imshow(mpimg.imread(file)) 
             axs[id_suffix, id_chn].set_axis_off() 
     fig.savefig('a_' + name + '.pdf')
-    pdb.set_trace()
-
-for name in ['audio', 'rec', 'cen_word']:
-    for chn in ['T7', 'CP5', 'CP6', 'Fz']:
-        fig_title = name + '_' + chn + '_fastest_answer'
-        fig = X['QA_' + name + '_sorted'][0][:5].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
-        fig.savefig('a_' + fig_title + '.png')
-        fig_title = name + '_' + chn + '_no_answer'
-        fig = X['QA_' + name + '_sorted'][0][-5:].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
-        fig.savefig('a_' + fig_title + '.png')
-        fig_title = name + '_' + chn + '_all'
-        fig = X['QA_' + name + '_sorted'][0].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
-        fig.savefig('a_' + fig_title + '.png')
-
+pdb.set_trace()
 pdb.set_trace()
 
 # nr_run=0
