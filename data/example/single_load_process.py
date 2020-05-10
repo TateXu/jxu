@@ -175,7 +175,7 @@ if load_clean:
                      nr_events_predefined=nr_events_predefined)
     raw_clean = all_raw_data
     # 'BAD boundary', 'EDGE boundary'
-
+filter_epoch = True
 if epoch_clean:
 
     print('------- Epoching the raw files -------')
@@ -188,12 +188,12 @@ if epoch_clean:
                       'QA_trial_start': [30, 160]}
     else:
         # -------- ERP data extraction --------------
-        epoch_list = {'Cali_display_start': [1, 20],
-                      'Cali_rec_start': [1, 20],
-                      'QA_audio_start': [1, 160],
-                      'QA_rec_start': [1, 160],
-                      'QA_cen_word_start': [1, 160],
-                      'QA_ans_start': [1, 160]}
+        epoch_list = {'Cali_display_start': [2.2, 20],
+                      'Cali_rec_start': [2.2, 20],
+                      'QA_audio_start': [2.2, 160],
+                      'QA_rec_start': [2.2, 160],
+                      'QA_cen_word_start': [2.2, 160],
+                      'QA_ans_start': [2.2, 160]}
     X = {}
     events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
     
@@ -203,17 +203,21 @@ if epoch_clean:
         if erp_flag:
             epochs = mne.Epochs(raw_clean, events_clean,
                     event_id=[event_dict_expand[key]],
-                    tmin=-0.5, tmax=val[0], baseline=None, proj=False,
+                    tmin=-0.2, tmax=val[0], baseline=None, proj=False,
                     preload=True, verbose=False, on_missing='ignore')
+            if filter_epoch:
+                filtered_epochs = epochs.copy().filter(l_freq=None, h_freq=15.0)
+            else:
+                filtered_epochs = epochs.filter(l_freq=None, h_freq=15.0)
             X[key[:-6]] = []
             if 'Cali' in key:
                 for nr_run in range(2):
-                    tmp = epochs[10 * nr_run: 10 * (nr_run + 1)]
+                    tmp = filtered_epochs[10 * nr_run: 10 * (nr_run + 1)]
                     X[key[:-6]].append(tmp)
                 del tmp
             elif 'QA' in key:
                 for nr_run in range(4):
-                    tmp = epochs[40 * nr_run: 40 * (nr_run + 1)]
+                    tmp = filtered_epochs[40 * nr_run: 40 * (nr_run + 1)]
                     X[key[:-6]].append(tmp)
                 del tmp
 
@@ -288,8 +292,10 @@ if erp_flag:
             else:
                 new_key = key + '_sorted'
                 X[new_key] = []
+                X[new_key + '_onset'] = []
                 for i in range(4):
                     X[new_key].append(X[key][i][onset_sort_ind[i]])
+                    X[new_key + '_onset'].append(onset_sort_ind[i])
 else:
     with open(path + '/data_w_annot.pkl', 'rb') as f:
         X = pickle.load(f)
@@ -303,7 +309,6 @@ pdb.set_trace()
 # X['QA_rec_sorted'][0].plot_image(piegncks=['T7'])
 # plot_psd_topomap
 # plot_topo_image
-
 
 
 run = 2
