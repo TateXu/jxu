@@ -300,24 +300,25 @@ else:
             X['QA_sorted'].append(X['QA'][i][onset_sort_ind[i]])
 pdb.set_trace()
 # 'QA_audio_sorted', 'QA_rec_sorted', 'QA_cen_word_sorted', 'QA_ans_sorted'
-# X['QA_rec_sorted'][0].plot_image(picks=['T7'])
+# X['QA_rec_sorted'][0].plot_image(piegncks=['T7'])
 # plot_psd_topomap
 # plot_topo_image
 
 
 
 run = 2
-for name in ['audio', 'rec', 'cen_word']:
-    for chn in ['Pz', 'Fz']:
-        fig_title = name + '_' + chn + '_fastest_answer_' + str(run)
-        fig = X['QA_' + name + '_sorted'][run][:5].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
-        fig.savefig('Results/a_' + fig_title + '.pdf')
-        fig_title = name + '_' + chn + '_no_answer_' + str(run)
-        fig = X['QA_' + name + '_sorted'][run][-5:].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
-        fig.savefig('Results/a_' + fig_title + '.pdf')
-        fig_title = name + '_' + chn + '_all_' + str(run)
-        fig = X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
-        fig.savefig('Results/a_' + fig_title + '.pdf')
+for run in range(4):
+    for name in ['audio', 'rec', 'cen_word']:
+        for chn in ['Pz', 'Cz', 'CPz']:
+            fig_title = name + '_' + chn + '_fastest_answer_' + str(run)
+            fig = X['QA_' + name + '_sorted'][run][:5].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+            fig.savefig('Results/a_' + fig_title + '.pdf')
+            fig_title = name + '_' + chn + '_no_answer_' + str(run)
+            fig = X['QA_' + name + '_sorted'][run][-5:].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+            fig.savefig('Results/a_' + fig_title + '.pdf')
+            fig_title = name + '_' + chn + '_all_' + str(run)
+            fig = X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+            fig.savefig('Results/a_' + fig_title + '.pdf')
 
 import matplotlib.image as mpimg
 for name in ['audio', 'rec', 'cen_word']:
