@@ -5,6 +5,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from itertools import product
 from mne.viz import plot_epochs_image
+import platform
 
 import mne
 
@@ -29,7 +30,12 @@ locals().update(vars(local_args))
 
 nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
-path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'  # '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
+if platform.system() == 'Linux':
+    path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'  
+elif platform.system() == 'Darwin':
+    path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
+
+    
 load_audio_para = True
 sort_eeg_data = True
 if load_audio_para:
