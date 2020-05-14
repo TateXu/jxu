@@ -35,7 +35,7 @@ if platform.system() == 'Linux':
 elif platform.system() == 'Darwin':
     path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
 
-    
+
 load_audio_para = True
 sort_eeg_data = True
 if load_audio_para:
@@ -317,20 +317,95 @@ pdb.set_trace()
 # plot_topo_image
 
 
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+
+
+run = 2
+
+
+
+
+for run in range(4):
+    fig = plt.figure(figsize=(16, 16))
+    outer = gridspec.GridSpec(3, 4, wspace=0.2, hspace=0.2)
+    outer_list = []
+    for i in range(12):
+        inner = gridspec.GridSpecFromSubplotSpec(2, 2,
+                        subplot_spec=outer[i], wspace=0.1, hspace=0.1, width_ratios=[4, 1])
+        inner_ax = []
+        for j in [0, 2, 1]:
+            ax = plt.Subplot(fig, inner[j])
+            fig.add_subplot(ax)
+            inner_ax.append(ax)
+        outer_list.append(inner_ax)
+    for id_name, name in enumerate(['audio', 'rec', 'cen_word']):
+        chn_list = ['Pz', 'CPz', 'Cz', 'Fz']
+        for id_chn, chn in enumerate(chn_list):
+            fig_title = name + '_' + chn + '_all_' + str(run)
+            X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False, axes=outer_list[id_name*4 + id_chn])[0]  # No response
+            
+    fig.savefig('Results/a_all_run_' + str(run) + '.pdf')
+
+
+import pdb 
+pdb.set_trace()
+
+
+
+for run in range(4):
+    for name in ['audio', 'rec', 'cen_word']:
+        fig = plt.figure(figsize=(16, 16))
+        outer = gridspec.GridSpec(3, 4, wspace=0.2, hspace=0.2)
+        outer_list = []
+        for i in range(12):
+            inner = gridspec.GridSpecFromSubplotSpec(2, 2,
+                            subplot_spec=outer[i], wspace=0.1, hspace=0.1, width_ratios=[4, 1])
+            inner_ax = []
+            for j in [0, 2, 1]:
+                ax = plt.Subplot(fig, inner[j])
+                fig.add_subplot(ax)
+                inner_ax.append(ax)
+            outer_list.append(inner_ax)
+        chn_list = ['Pz', 'CPz', 'Cz', 'Fz']
+        for id_chn, chn in enumerate(chn_list):
+            fig_title = name + '_' + chn + '_fastest_answer_' + str(run)
+            X['QA_' + name + '_sorted'][run][:5].plot_image(picks=[chn], title=fig_title, show=False, axes=outer_list[id_chn])[0]  # No response
+
+            fig_title = name + '_' + chn + '_no_answer_' + str(run)
+            X['QA_' + name + '_sorted'][run][-5:].plot_image(picks=[chn], title=fig_title, show=False, axes=outer_list[len(chn_list) + id_chn])[0]  # No response
+
+            fig_title = name + '_' + chn + '_all_' + str(run)
+            X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False, axes=outer_list[len(chn_list)*2 + id_chn])[0]  # No response
+        fig.savefig('Results/a_' + name + '_run_' + str(run) + '.pdf')
+
+import pdb 
+pdb.set_trace()
+
+
+
+
+
+
+
+
+
+
+"""
 run = 2
 for run in range(4):
     for name in ['audio', 'rec', 'cen_word']:
-        for chn in ['Pz', 'Cz', 'CPz']:
+        for id_chn, chn in enumerate(['Pz', 'CPz', 'Cz', 'Fz']):
             fig_title = name + '_' + chn + '_fastest_answer_' + str(run)
-            fig = X['QA_' + name + '_sorted'][run][:5].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+            fig = X['QA_' + name + '_sorted'][run][:5].plot_image(picks=[chn], title=fig_title, show=False, ax=outer_list[id_chn*4])[0]  # No response
             fig.savefig('Results/a_' + fig_title + '.pdf')
             fig_title = name + '_' + chn + '_no_answer_' + str(run)
-            fig = X['QA_' + name + '_sorted'][run][-5:].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+            fig = X['QA_' + name + '_sorted'][run][-5:].plot_image(picks=[chn], title=fig_title, show=False, ax=outer_list[id_chn*4])[0]  # No response
             fig.savefig('Results/a_' + fig_title + '.pdf')
             fig_title = name + '_' + chn + '_all_' + str(run)
-            fig = X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False)[0]  # No response
+            fig = X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False, ax=outer_list[id_chn*4])[0]  # No response
             fig.savefig('Results/a_' + fig_title + '.pdf')
-
 import matplotlib.image as mpimg
 for name in ['audio', 'rec', 'cen_word']:
     fig, axs = plt.subplots(nrows=3, ncols=2, constrained_layout=True)
@@ -343,7 +418,7 @@ for name in ['audio', 'rec', 'cen_word']:
     fig.savefig('a_' + name + '.pdf')
 pdb.set_trace()
 pdb.set_trace()
-
+"""
 # nr_run=0
 # nr_trial = 0
 # plot_joint_t_freq(X['QA_sorted'][nr_run][nr_trial], trigger_annot=X['QA'][nr_run].run_annot[onset_sort_ind[nr_run][nr_trial]][:,[0, -1]],channel=['CP5', 'CP6', 'Fpz'],colorbar=False, fmin=0.0, save=True, fmax=70.0,tmin=0.0, tmax=28.0, n_perseg=50,fig_name='temp_tf_fastest.pdf')

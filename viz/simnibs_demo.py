@@ -24,7 +24,7 @@ opt.max_active_electrodes = 2
 
 #
 
-single = True
+single = False
 if single:
     opt.name =  file_root + 'optimization/single_target'
     # Define optimization target
