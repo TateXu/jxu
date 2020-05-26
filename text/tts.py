@@ -205,7 +205,8 @@ def tts_shattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/NIB
 
 
 def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/Unshattered/',
-                    audio_rate=1.0, pitch=0.0, lang='de-DE', word_type='VERB', df_name='all_unshattered_ori_df.pkl'):
+                    audio_rate=1.0, pitch=0.0, lang='de-DE', word_type='VERB', word_content=None,
+                    df_name='all_unshattered_ori_df.pkl', permanent_index=None):
     # POS tag are from: https://spacy.io/api/annotation
     # ['VERB', 'NOUN', 'ADJ', 'DET', 'ADV', 'AUX', 'ADP', 'CONJ',
     #  'CCONJ', 'INTJ', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM']
@@ -213,9 +214,9 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
 
-    col_name = ['folder_path', 'speed', 'pitch', 'language', 'article_id', 'sen_id', 'sen_content',
+    col_name = ['folder_path', 'speed', 'pitch', 'language', 'permanent_index','article_id', 'sen_id', 'sen_content',
         'tag_list', 'n_tag', 'censored_word_type', 'censored_word_id_relative', 'censored_word_id_abs', 'censored_word',
-        'ssml_string', 'last_word_flag', 'file_path', 'audio_loc']
+        'ssml_string', 'last_word_flag', 'file_path', 'audio_loc', 'syn_status']
     dataframe_path = file_root + df_name
     if not os.path.exists(dataframe_path):
         empty_df = pd.DataFrame(columns=col_name)
@@ -228,7 +229,8 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
     # nlp = spacy.load("de_core_news_sm")
     article_content = nlp(article)
 
-    parsed_sen = [sent.string.strip() for sent in article_content.sents]
+    # parsed_sen = [sent.string.strip() for sent in article_content.sents]
+    parsed_sen = [article]
 
     break_list = 1000
     # break_list = {'VERB': 2000}
@@ -244,8 +246,17 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
         sen_tag = [token.pos_ for token in doc]
         sen_str_list = [token.text for token in doc]
         sen_info = [[token.text, token.pos_] for token in doc]
-        tag_indices = [index for index, con in enumerate(sen_tag) if con == word_type]
+        if word_content is not None:
+            tag_indices = [index for index, con in enumerate(sen_str_list) if con == word_content]  # use in for list of word content
+        elif word_type in ['VERB', 'NOUN']:
+            tag_indices = [index for index, con in enumerate(sen_tag) if con == word_type]
+        else:
+            raise ValueError('Unsupported word_type! Valid: VERB or NOUN')
 
+        if tag_indices == []:
+            print('tag_indices = [index for index, con in enumerate(sen_str_list) if con == word_content]')
+            import pdb 
+            pdb.set_trace()
 
         sen_folder_path = folder_path + 'sentence_{0}_{1}/'.format(sen_ind, word_type)
         if not os.path.exists(sen_folder_path):
@@ -261,7 +272,8 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
         for i_tagged_word_ind, tagged_word_ind in enumerate(tag_indices):
             # It's forbidden to censor the first word.
             #
-            if tagged_word_ind == 0: 
+            if tagged_word_ind == 0:
+                pdb.set_trace()
                 continue
 
             if tag_list[-1] == sen_info[tagged_word_ind]:
@@ -291,6 +303,7 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
                     'speed': [audio_rate],
                     'pitch': [pitch],
                     'language': ['German'],
+                    'permanent_index': [permanent_index],
                     'article_id':[article_id],
                     'sen_id':[sen_ind],
                     'sen_content': [sen_str],
@@ -304,6 +317,7 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
                     'last_word_flag': [last_word_flag],
                     'file_path':[file_path],
                     'audio_loc':[audio_loc],
+                    'syn_status': [False]
                     }
             tmp_df = pd.DataFrame(data)
             empty_sen_df = pd.concat([empty_sen_df, tmp_df], ignore_index=True)
@@ -316,17 +330,8 @@ def tts_unshattered(nlp, article, article_id=0, file_root='/home/jxu/File/Data/N
             try:
                 google_text_to_speech(ssml_string, audio_loc, speed=audio_rate, pitch=pitch, lang=lang)
             except:
-                credentials = input('Would you like to assign credentials? (y/n)\n')
-                if credentials.lower() == 'y':
-                    # cmd = 'export GOOGLE_APPLICATION_CREDENTIALS="/home/jxu/Code/Google_Cloud_Plattform/STS-PRIVATE-d0ca8d9f6870.json"'
-                    print("Please run following commands under google_cloud_env. (private credentials: STS-PRIVATE-d0ca8d9f6870.json)") 
-                    print("export GOOGLE_APPLICATION_CREDENTIALS='/home/jxu/Code/Google_Cloud_Plattform/fsgni_nibs_tts.json'")
-                    return 0
-                else:
-                    raise ValueError("Credentials assignment of google account is required!")
+                return print('Credential Activated! Please rerun the code.\n export GOOGLE_APPLICATION_CREDENTIALS="/home/jxu/Code/Google_Cloud_Plattform/STS-PRIVATE-d0ca8d9f6870.json"')
 
-    import pdb 
-    pdb.set_trace()
     all_df = pd.concat([all_df, empty_sen_df], ignore_index=True)
 
     # Remove duplicate sentences
