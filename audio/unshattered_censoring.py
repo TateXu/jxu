@@ -1,7 +1,8 @@
 from jxu.audio.audiosignal import *
 import pandas as pd
+import pdb 
 
-file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/Unshattered/audio_backup/'
+file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/Unshattered/audio/'
 
 ori_df='all_unshattered_ori_df.pkl'
 
@@ -11,7 +12,7 @@ audio_rate=0.9
 pitch=0.0
 beep_word_type='VERB'
 sps=24000
-beep_freq=100.0
+beep_freq=0.1
 vol=1.0
 bit=16
 chn=1
@@ -25,7 +26,7 @@ col_name = [('PATH', 'file_root_ori'), ('PATH', 'file_root_syn'),
             ('SENTENCE_INFO', 'sen_content'),('SENTENCE_INFO', 'beeped_sen_content'),
             ('SENTENCE_INFO', 'beep_word_type'), ('SENTENCE_INFO', 'beeped_word'), ('SENTENCE_INFO', 'beeped_word_duration'), 
             ('SENTENCE_INFO', 'beeped_word_timestamp_start'), ('SENTENCE_INFO', 'beeped_word_timestamp_end'),
-            ('SENTENCE_INFO', 'sentence_duration'), ('EXP_INFO', 'S00'),
+            ('SENTENCE_INFO', 'last_word_flag'), ('SENTENCE_INFO', 'sentence_duration'), ('EXP_INFO', 'S00'),
             ('EXP_INFO', 'S01'), ('EXP_INFO', 'S02'), ('EXP_INFO', 'S03'), ('EXP_INFO', 'S04'), ('EXP_INFO', 'S05'),
             ('EXP_INFO', 'S06'), ('EXP_INFO', 'S07'), ('EXP_INFO', 'S08'), ('EXP_INFO', 'S09'), ('EXP_INFO', 'S10')]
 
@@ -48,13 +49,12 @@ empty_sen_df.columns = pd.MultiIndex.from_tuples(empty_sen_df.columns, names=['G
 punc = string.punctuation
 
 
-selected_df = all_ori_df.copy().loc[(all_ori_df['sync_status'] == False)]
+selected_df = all_ori_df.copy().loc[(all_ori_df['syn_status'] == False)]
 
 new_all_beep_df = [all_beep_df]
 pdb.set_trace()
 for index, entry in selected_df.iterrows(): 
-    if index==0:
-        break
+    print(index)
     audio_name = entry.audio_loc[:-4]
     mp3_to_wav(audio_name, sps=sps, channel=chn, std_suffix='_std')
 
@@ -76,6 +76,7 @@ for index, entry in selected_df.iterrows():
 
     new_fname = entry.folder_path + 'sentence_{0}_{1}/sentence_{0}_{1}_{2}_syn.wav'.format(
         entry['sen_id'], beep_word_type, entry['censored_word_id_relative'])
+
     combined_sounds.export(new_fname, format="wav")
 
     beeped_sentence = re.sub(r'(?is)' + entry.censored_word, '[MASK]', entry.sen_content)
@@ -99,6 +100,7 @@ for index, entry in selected_df.iterrows():
             ('SENTENCE_INFO', 'beeped_word_duration'): [len(beep_chunk) / 1000],
             ('SENTENCE_INFO', 'beeped_word_timestamp_start'): [len(clean_chunks[0]) / 1000],
             ('SENTENCE_INFO', 'beeped_word_timestamp_end'): [len(clean_chunks[0] + clean_chunks[1]) / 1000],
+            ('SENTENCE_INFO', 'last_word_flag'): [entry.last_word_flag],
             ('SENTENCE_INFO', 'sentence_duration'): [sen_duration],
             ('EXP_INFO', 'S00'): None,
             ('EXP_INFO', 'S01'): None, ('EXP_INFO', 'S02'): None,
@@ -109,12 +111,12 @@ for index, entry in selected_df.iterrows():
 
     new_all_beep_df.append(pd.DataFrame(data))
 
-
-all_ori_df.loc[(all_ori_df['sync_status'] == False),'sync_status'] = True
+pdb.set_trace()
+all_ori_df.loc[(all_ori_df['syn_status'] == False),'syn_status'] = True
 all_beep_df = pd.concat(new_all_beep_df, ignore_index=True)
 import pdb 
 pdb.set_trace()
-no_duplicate_col_name = ['sen_content', 'censored_word', 'ssml_string']
+no_duplicate_col_name = [('SENTENCE_INFO', 'sen_content'), ('SENTENCE_INFO', 'beeped_word')]
 all_beep_df.drop_duplicates(subset=no_duplicate_col_name, keep='first', inplace=True)
 all_beep_df.columns = pd.MultiIndex.from_tuples(all_beep_df.columns, names=['Caps','Lower'])
 import pdb 
