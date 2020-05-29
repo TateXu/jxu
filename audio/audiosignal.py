@@ -158,10 +158,11 @@ def wav_concat(infiles, outfile, nchn=1, samplewidth=2, sps=44100):
     for infile in infiles:
         wfile = wave.open(infile, 'rb')
         if wfile.getparams()[:3] != (nchn, samplewidth, sps):
+            temp_file_name = infile[:-4] + '_temp' + infile[-4:]
             print("Convering audio format: channel " + str(nchn) + ", sample width: " + str(samplewidth) + ', rate: ' + str(sps))
-            subprocess.call(['ffmpeg', '-i', infile, '-ac', str(nchn), '-ar', str(sps), '-y', 'temp_' + infile])
-            wfile = wave.open('temp_' + infile, 'rb')
-            subprocess.call(['rm', 'temp_' + infile])
+            subprocess.call(['ffmpeg', '-i', infile, '-ac', str(nchn), '-ar', str(sps), '-y', temp_file_name])
+            wfile = wave.open(temp_file_name, 'rb')
+            subprocess.call(['rm', temp_file_name])
 
         data.append( [wfile.getparams(), wfile.readframes(wfile.getnframes())] )
         wfile.close()
