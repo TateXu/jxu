@@ -71,7 +71,6 @@ if pre_load_data:
         source = sf.fit(all_data[nr_subj], all_label[nr_subj]).transform(all_data[nr_subj])
         source_data.append(source)
 
-
     source_data = np.asarray(source_data)
     label = np.asarray(all_label)
     with open(file_root + 'MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
