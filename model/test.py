@@ -28,7 +28,8 @@ import warnings
 from pymtl.linear_regression import MTLRegression as mtl
 from pymtl.feature_decomposition import FeatureDecompositionModel as mtl_fd
 
-
+from jxu.sp.laplacian import surf_LP
+from jxu.viz.channel_location.load import electrodes
 
 warnings.filterwarnings("ignore")
 
@@ -50,20 +51,29 @@ def load_data(subject, session, fmin=8, fmax=32):
             return X[ix], y[ix]
 
 file_root = '/home/jxu/File/Code/Git/pyMTL/examples/'
-
+loc = electrodes().MunichMI()
 nr_comp = 6
-pre_load_data = False
+pre_load_data = True
 if pre_load_data:
-    all_data = np.empty((10, 12))
-    all_label = np.empty((10, ))
+    all_data = np.empty((10, 300, 12, 128))
+    all_label = np.empty((10, 300))
 
     le = LabelEncoder().fit(["left_hand", "right_hand"])
     for nr_subj in range(10):
-        for ind_band, band in enumerate(range(7, 29, 2)):
+        feat_mat = np.empty((300, 12, 128))
+        for ind_band, band in enumerate(range(7, 31, 2)):
             X, y = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
-            all_data[nr_subj, ind_band] = X
+            for nr_trial in range(X.shape[0]):
+                feat_mat[nr_trial, ind_band] = np.log(np.var(surf_LP(X[nr_trial], loc, filter_type='small'), axis=1))
+            print(str(ind_band) + ' ' + str(nr_trial))
+        all_data[nr_subj] = feat_mat
         all_label[nr_subj] = le.transform(y)
 
+    import pdb 
+    pdb.set_trace()
+    with open(file_root + 'Logvar_MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
+        pickle.dump([all_data, all_label], f)
+    pdb.set_trace()
     source_data = []
 
     for nr_subj in range(10):

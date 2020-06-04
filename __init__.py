@@ -8,7 +8,7 @@ import numpy as np
 from .basiccmd import *
 from .onlinestream import *
 from .hardware import *
-from .signalprocessing import *
+from .sp import *
 
 
 __version__ = '0.0.1'
