@@ -53,7 +53,7 @@ def load_data(subject, session, fmin=8, fmax=32):
 file_root = '/home/jxu/File/Code/Git/pyMTL/examples/'
 loc = electrodes().MunichMI()
 nr_comp = 6
-pre_load_data = True
+pre_load_data = False
 if pre_load_data:
     all_data = np.empty((10, 300, 12, 128))
     all_label = np.empty((10, 300))
@@ -86,14 +86,19 @@ if pre_load_data:
     with open(file_root + 'MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
         pickle.dump([source_data, label], f)
 else:
-    with open(file_root + 'MunichMI_{0}.pkl'.format(str(nr_comp)), 'rb') as f:
+    with open(file_root + 'Logvar_MunichMI_{0}.pkl'.format(str(nr_comp)), 'rb') as f:
         source_data, label = pickle.load(f)
+    source_data = source_data.transpose((0, 1, 3, 2))
+
+
+
+
 le = LabelEncoder().fit(["left_hand", "right_hand"])
 acc_mat = np.zeros((10, 11))
 for nr_subj in range(10):
     
-    # trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML', estimator='EmpiricalCovariance')
-    trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
+    trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML', estimator='EmpiricalCovariance')
+    # trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
     import pdb 
     pdb.set_trace()
     X_pool = np.delete(dc(source_data), nr_subj, axis=0)
@@ -103,23 +108,32 @@ for nr_subj in range(10):
     X_pool_ = X_pool.reshape(-1, X_pool.shape[-1])
     y_pool_ = y_pool.reshape(-1)
 
-    single_data, single_label = load_data(subject=nr_subj+1, session=0)
     single_label = le.transform(single_label)
+    if not TSSF_flag:
+        single_data, single_label = load_data(subject=nr_subj+1, session=0)
+    else:
+        single_data = source_data[nr_subj]
 
-    for ind, nr_train_trial in enumerate([120]): # range(120, 120, 10)
+    for ind, nr_train_trial in range(120, 120, 10):  # range(120, 120, 10)
         X_train, X_test, y_train, y_test = train_test_split(
             single_data, single_label, test_size=(150-nr_train_trial)/150, random_state=0)
 
-        sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar='Cov')
-        fitted_tssf = sf.fit(X_train, y_train)
-
-        source = fitted_tssf.transform(X_train)
-
+        if TSSF_flag:
+            sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar='Cov')
+            fitted_tssf = sf.fit(X_train, y_train)
+            source = fitted_tssf.transform(X_train)
+        else:
+            source = dc(X_train)
+        pdb.set_trace()
         X_all_train = np.concatenate((X_pool_, source), axis=0)
         y_all_train = np.concatenate((y_pool_, y_train), axis=0)
         trained.fit(X_all_train, y_all_train)
 
-        y_predict = np.sign(trained.predict(fitted_tssf.transform(X_test)))
+        if TSSF_flag:
+            y_predict = np.sign(trained.predict(fitted_tssf.transform(X_test)))
+        else:
+            y_predict = np.sign(trained.predict(X_test))
+
         y_predict = np.int8((y_predict + 1) / 2)
         acc = 1 - np.sum((y_predict - y_test) ** 2) / y_predict.shape[0]
         acc_mat[nr_subj, ind] = acc
