@@ -65,7 +65,7 @@ if pre_load_data:
             X, y = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
             for nr_trial in range(X.shape[0]):
                 feat_mat[nr_trial, ind_band] = np.log(np.var(surf_LP(X[nr_trial], loc, filter_type='small'), axis=1))
-            print(str(ind_band) + ' ' + str(nr_trial))
+            print(str(nr_subj) + ' ' + str(ind_band) + ' ' + str(nr_trial))
         all_data[nr_subj] = feat_mat
         all_label[nr_subj] = le.transform(y)
 
