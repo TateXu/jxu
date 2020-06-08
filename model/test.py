@@ -54,6 +54,7 @@ file_root = '/home/jxu/File/Code/Git/pyMTL/examples/'
 loc = electrodes().MunichMI()
 nr_comp = 6
 pre_load_data = False
+
 if pre_load_data:
     all_data = np.empty((10, 300, 12, 128))
     all_label = np.empty((10, 300))
@@ -69,8 +70,7 @@ if pre_load_data:
         all_data[nr_subj] = feat_mat
         all_label[nr_subj] = le.transform(y)
 
-    import pdb
-    pdb.set_trace()
+    import pdb;pdb.set_trace()
     with open(file_root + 'Logvar_MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
         pickle.dump([all_data, all_label], f)
     pdb.set_trace()
@@ -93,14 +93,16 @@ else:
 
 
 
+TSSF_flag = False
+
 le = LabelEncoder().fit(["left_hand", "right_hand"])
 acc_mat = np.zeros((10, 11))
 for nr_subj in range(10):
 
     trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML', estimator='EmpiricalCovariance')
     # trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
-    import pdb
-    pdb.set_trace()
+    import pdb;pdb.set_trace()
+
     X_pool = np.delete(dc(source_data), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
     trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
@@ -108,12 +110,12 @@ for nr_subj in range(10):
     X_pool_ = X_pool.reshape(-1, X_pool.shape[-1])
     y_pool_ = y_pool.reshape(-1)
 
-    single_label = le.transform(single_label)
     if not TSSF_flag:
         single_data, single_label = load_data(subject=nr_subj+1, session=0)
     else:
         single_data = source_data[nr_subj]
 
+    single_label = le.transform(single_label)
     for ind, nr_train_trial in range(120, 120, 10):  # range(120, 120, 10)
         X_train, X_test, y_train, y_test = train_test_split(
             single_data, single_label, test_size=(150-nr_train_trial)/150, random_state=0)
