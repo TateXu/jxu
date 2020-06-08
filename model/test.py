@@ -18,7 +18,7 @@ from sklearn.preprocessing import LabelEncoder
 from pyriemann.estimation import Covariances
 from pyriemann.tangentspace import TangentSpace
 
-from moabb.datasets import MunichMI, BNCI2014001 
+from moabb.datasets import MunichMI, BNCI2014001
 from moabb.paradigms import MotorImagery
 from moabb.pipelines.features import TSSF
 from copy import deepcopy as dc
@@ -43,7 +43,7 @@ def score(clf, X, y, scoring):
 
 def load_data(subject, session, fmin=8, fmax=32):
     MI = MotorImagery(fmin=fmin, fmax=fmax, events=['left_hand', 'right_hand'])
-    dataset = MunichMI()  #  BNCI2014001() # 
+    dataset = MunichMI()  #  BNCI2014001()
     X, y, metadata = MI.get_data(dataset, [subject])
     for nr_ses, name_ses in enumerate(np.unique(metadata.session).tolist()):
         if nr_ses == session:
@@ -69,7 +69,7 @@ if pre_load_data:
         all_data[nr_subj] = feat_mat
         all_label[nr_subj] = le.transform(y)
 
-    import pdb 
+    import pdb
     pdb.set_trace()
     with open(file_root + 'Logvar_MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
         pickle.dump([all_data, all_label], f)
@@ -96,15 +96,15 @@ else:
 le = LabelEncoder().fit(["left_hand", "right_hand"])
 acc_mat = np.zeros((10, 11))
 for nr_subj in range(10):
-    
+
     trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML', estimator='EmpiricalCovariance')
     # trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
-    import pdb 
+    import pdb
     pdb.set_trace()
     X_pool = np.delete(dc(source_data), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
     trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
-    
+
     X_pool_ = X_pool.reshape(-1, X_pool.shape[-1])
     y_pool_ = y_pool.reshape(-1)
 
@@ -138,7 +138,7 @@ for nr_subj in range(10):
         acc = 1 - np.sum((y_predict - y_test) ** 2) / y_predict.shape[0]
         acc_mat[nr_subj, ind] = acc
         print('S_{0}, #Trial_{1}, Accuracy: {2}'.format(str(nr_subj+1), str(nr_train_trial), str(acc)))
-import pdb 
+import pdb
 pdb.set_trace()
 
 
