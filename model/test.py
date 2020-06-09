@@ -25,7 +25,7 @@ from copy import deepcopy as dc
 from sklearn.model_selection import train_test_split
 import warnings
 
-from pymtl.linear_regression import MTLRegression as mtl
+from pymtl.linear_regression import MTLRegressionClassifier as mtl
 from pymtl.feature_decomposition import FeatureDecompositionModel as mtl_fd
 
 from jxu.sp.laplacian import surf_LP
@@ -89,8 +89,8 @@ else:
     with open(file_root + 'Logvar_MunichMI_{0}.pkl'.format(str(nr_comp)), 'rb') as f:
         source_data, label = pickle.load(f)
     source_data = source_data.transpose((0, 1, 3, 2))
-
-
+    source_data_reshaped = source_data.copy().reshape(source_data.shape[0], source_data.shape[1], -1)
+    label = np.int8(label)
 
 
 TSSF_flag = False
@@ -99,24 +99,25 @@ le = LabelEncoder().fit(["left_hand", "right_hand"])
 acc_mat = np.zeros((10, 11))
 for nr_subj in range(10):
 
-    trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML', estimator='EmpiricalCovariance')
     # trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
-    import pdb;pdb.set_trace()
 
-    X_pool = np.delete(dc(source_data), nr_subj, axis=0)
+    X_pool = np.delete(dc(source_data_reshaped), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
-    trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
-
+    # trained.fit_multi_task(X_pool, y_pool, verbose=True, n_jobs=1)
     X_pool_ = X_pool.reshape(-1, X_pool.shape[-1])
     y_pool_ = y_pool.reshape(-1)
 
-    if not TSSF_flag:
+    if TSSF_flag:
         single_data, single_label = load_data(subject=nr_subj+1, session=0)
+        single_label = le.transform(single_label)
     else:
         single_data = source_data[nr_subj]
+        single_label = label[nr_subj]
 
-    single_label = le.transform(single_label)
-    for ind, nr_train_trial in range(120, 120, 10):  # range(120, 120, 10)
+    trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1.0, C_style='ML', estimator='EmpiricalCovariance')
+    trained.fit_multi_task(X_pool, y_pool, verbose=True, n_jobs=1)
+    for ind, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
+        individual = trained.clone()
         X_train, X_test, y_train, y_test = train_test_split(
             single_data, single_label, test_size=(150-nr_train_trial)/150, random_state=0)
 
@@ -125,17 +126,18 @@ for nr_subj in range(10):
             fitted_tssf = sf.fit(X_train, y_train)
             source = fitted_tssf.transform(X_train)
         else:
-            source = dc(X_train)
-        pdb.set_trace()
-        X_all_train = np.concatenate((X_pool_, source), axis=0)
-        y_all_train = np.concatenate((y_pool_, y_train), axis=0)
-        trained.fit(X_all_train, y_all_train)
+           X_train = X_train.reshape(X_train.shape[0], -1)
+           X_test = X_test.reshape(X_test.shape[0], -1)
+
+#         X_all_train = np.concatenate((X_pool_, source), axis=0)
+#         y_all_train = np.concatenate((y_pool_, y_train), axis=0)
+#         trained.pre_fit(X_all_train, y_all_train)
+        individual.fit(X_train, y_train)
 
         if TSSF_flag:
-            y_predict = np.sign(trained.predict(fitted_tssf.transform(X_test)))
+            y_predict = np.sign(individual.predict(fitted_tssf.transform(X_test)))
         else:
-            y_predict = np.sign(trained.predict(X_test))
-
+            y_predict = np.sign(individual.predict(X_test))
         y_predict = np.int8((y_predict + 1) / 2)
         acc = 1 - np.sum((y_predict - y_test) ** 2) / y_predict.shape[0]
         acc_mat[nr_subj, ind] = acc
