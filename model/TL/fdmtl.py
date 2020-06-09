@@ -91,7 +91,7 @@ for nr_subj in range(10):
     single_data = source_data[nr_subj]
     single_label = label[nr_subj]
 
-    trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1.0, C_style='ML', estimator='EmpiricalCovariance')
+    trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1.0, C_style='ML', estimator='EmpiricalCovariance')
     trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
     for ind, nr_train_trial in enumerate(range(10, 120, 10)):
         individual = trained.clone()
