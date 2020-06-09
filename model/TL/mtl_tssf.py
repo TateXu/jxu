@@ -22,7 +22,7 @@ from moabb.datasets import MunichMI, BNCI2014001
 from moabb.paradigms import MotorImagery
 from moabb.pipelines.features import TSSF
 from copy import deepcopy as dc
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 import warnings
 
 from pymtl.linear_regression import MTLRegressionClassifier as mtl
@@ -53,7 +53,7 @@ def load_data(subject, session, fmin=8, fmax=32):
 
 file_root = '/home/jxu/File/Code/Git/pyMTL/examples/'
 loc = electrodes().MunichMI()
-pre_load_data = True
+pre_load_data = False
 
 le = LabelEncoder().fit(["left_hand", "right_hand"])
 if pre_load_data:
@@ -82,61 +82,96 @@ if pre_load_data:
                 print('{3} Comp {0}, Subj {1}, Band {2}'.format(
                     str(nr_comp), str(nr_subj), str(ind_band),
                     strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-        all_label[nr_subj] = y
+            all_label[nr_subj] = y
 
         label = np.asarray(all_label)
         import pdb;pdb.set_trace()
         with open(file_root + 'TSSF_MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
             pickle.dump([all_logcov, all_logvar, all_filters, label], f)
 else:
-    with open(file_root + 'Logvar_MunichMI_{0}.pkl'.format(str(nr_comp)), 'rb') as f:
-        source_data, label = pickle.load(f)
-    source_data = source_data.transpose((0, 1, 3, 2))
-    source_data_reshaped = source_data.copy().reshape(source_data.shape[0], source_data.shape[1], -1)
+    nr_comp = 4
+    with open(file_root + 'TSSF_MunichMI_{0}.pkl'.format(str(nr_comp)), 'rb') as f:
+        all_logcov, all_logvar, all_filters, _ = pickle.load(f)
+
+    with open(file_root + 'label.pkl', 'rb') as f:
+        label = pickle.load(f)[0]
+
+    all_logcov_reshaped = all_logcov.copy().reshape(all_logcov.shape[0], all_logcov.shape[1], -1)
+    all_logvar_reshaped = all_logvar.copy().reshape(all_logvar.shape[0], all_logvar.shape[1], -1)
     label = np.int8(label)
 
-
-TSSF_flag = False
+f_logvar = False
 
 acc_mat = np.zeros((10, 11))
+if f_logvar:
+    source_data_reshaped = dc(all_logvar_reshaped)
+else:
+    source_data_reshaped = dc(all_logcov_reshaped)
+
 for nr_subj in range(10):
 
-    # trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
+    single_data, single_label = load_data(subject=nr_subj+1, session=0)
+    single_label = le.transform(single_label)
+    ind_train_list = []
+    ind_test_list = []
+    y_train_list = []
+    y_test_list = []
+
+    source_train_list = []
+    source_test_list = []
+    for ind, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=(150-nr_train_trial)/150, random_state=0)
+        for ind_train, ind_test in sss.split(single_data, single_label):
+            ind_train_list.append(ind_train)
+            ind_test_list.append(ind_test)
+            y_train_list.append(single_label[ind_train])
+            y_test_list.append(single_label[ind_test])
+            break
+
+        if f_logvar:
+            source_train_list.append(np.empty((nr_train_trial * 2, nr_comp, 12)))
+            source_test_list.append(np.empty((300 - nr_train_trial * 2, nr_comp, 12)))
+        else:
+            source_train_list.append(np.empty((nr_train_trial * 2, int(nr_comp * (nr_comp + 1) / 2), 12)))
+            source_test_list.append(np.empty((300 - nr_train_trial * 2, int(nr_comp * (nr_comp + 1) / 2), 12)))
+
+    import pdb;pdb.set_trace()
+    for ind_band, band in enumerate(range(7, 31, 2)):
+        single_data, single_label = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
+        single_label = le.transform(single_label)
+
+        for ind_trial, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
+            X_train = single_data[ind_train_list[ind_trial]]
+            X_test = single_data[ind_test_list[ind_trial]]
+            y_train = single_label[ind_train_list[ind_trial]]
+            y_test = single_label[ind_test_list[ind_trial]]
+
+            sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar=f_logvar, cov_reg='oas')
+            fitted_tssf = sf.fit(X_train, y_train)
+            source_train_list[ind_trial][:, :, ind_band] = fitted_tssf.transform(X_train)
+            source_test_list[ind_trial][:, :, ind_band] = fitted_tssf.transform(X_test)
+            print('Band {0}, Trial {1}'.format(str(ind_band), str(ind_trial)))
+    import pdb;pdb.set_trace()
 
     X_pool = np.delete(dc(source_data_reshaped), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
-    # trained.fit_multi_task(X_pool, y_pool, verbose=True, n_jobs=1)
-    X_pool_ = X_pool.reshape(-1, X_pool.shape[-1])
-    y_pool_ = y_pool.reshape(-1)
-
-    if TSSF_flag:
-        single_data, single_label = load_data(subject=nr_subj+1, session=0)
-        single_label = le.transform(single_label)
-    else:
-        single_data = source_data[nr_subj]
-        single_label = label[nr_subj]
 
     trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1.0, C_style='ML', estimator='EmpiricalCovariance')
     trained.fit_multi_task(X_pool, y_pool, verbose=True, n_jobs=1)
+
     for ind, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
         individual = trained.clone()
-        X_train, X_test, y_train, y_test = train_test_split(
-            single_data, single_label, test_size=(150-nr_train_trial)/150, random_state=0)
+        source_train = source_train_list[ind]
+        source_test = source_test_list[ind]
 
-        if TSSF_flag:
-            sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar='Cov')
-            fitted_tssf = sf.fit(X_train, y_train)
-            source = fitted_tssf.transform(X_train)
-        else:
-           X_train = X_train.reshape(X_train.shape[0], -1)
-           X_test = X_test.reshape(X_test.shape[0], -1)
+        source_train = source_train.reshape(source_train.shape[0], -1)
+        source_test = source_test.reshape(source_test.shape[0], -1)
 
-        individual.fit(X_train, y_train)
+        y_train = y_train_list[ind]
+        y_test = y_test_list[ind]
+        individual.fit(source_train, y_train)
 
-        if TSSF_flag:
-            y_predict = np.sign(individual.predict(fitted_tssf.transform(X_test)))
-        else:
-            y_predict = np.sign(individual.predict(X_test))
+        y_predict = np.sign(individual.predict(source_test))
         y_predict = np.int8((y_predict + 1) / 2)
         acc = 1 - np.sum((y_predict - y_test) ** 2) / y_predict.shape[0]
         acc_mat[nr_subj, ind] = acc
