@@ -1,6 +1,6 @@
 import pickle
 import numpy as np
-
+from time import gmtime, strftime
 from sklearn.preprocessing import LabelEncoder
 
 
@@ -67,7 +67,6 @@ if pre_load_data:
         all_filters = np.empty((10, 12, 128, 128))
 
         for nr_subj in range(10):
-            feat_mat = np.empty((300, 12, nr_comp))
             for ind_band, band in enumerate(range(7, 31, 2)):
                 X, y = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
                 y = le.transform(y)
@@ -79,12 +78,14 @@ if pre_load_data:
                 fitted_tssf.logvar = True
                 all_logvar[nr_subj, :, :, ind_band] = fitted_tssf.transform(X)
                 all_filters[nr_subj, ind_band] = fitted_tssf.all_filters  # C*K
-                import pdb;pdb.set_trace()
-                print('Comp {0}, Subj {1}, Band {2}'.format(
-                    str(nr_comp), str(nr_subj), str(ind_band)) )
+
+                print('{3} Comp {0}, Subj {1}, Band {2}'.format(
+                    str(nr_comp), str(nr_subj), str(ind_band),
+                    strftime("%Y-%m-%d %H:%M:%S", gmtime())))
         all_label[nr_subj] = y
 
         label = np.asarray(all_label)
+        import pdb;pdb.set_trace()
         with open(file_root + 'TSSF_MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
             pickle.dump([all_logcov, all_logvar, all_filters, label], f)
 else:
