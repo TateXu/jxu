@@ -100,7 +100,7 @@ else:
     all_logvar_reshaped = all_logvar.copy().reshape(all_logvar.shape[0], all_logvar.shape[1], -1)
     label = np.int8(label)
 
-for nr_comp in [4, 6, 10, 20]:
+for nr_comp in [40, 60, 128]:
     for f_logvar in [False, True]:
         acc_mat = np.zeros((10, 11))
         if f_logvar:

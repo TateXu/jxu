@@ -89,7 +89,7 @@ if pre_load_data:
         with open(file_root + 'TSSF_MunichMI_{0}.pkl'.format(str(nr_comp)), 'wb') as f:
             pickle.dump([all_logcov, all_logvar, all_filters, label], f)
 else:
-    nr_comp = 4
+    nr_comp = 10
     with open(file_root + 'TSSF_MunichMI_{0}.pkl'.format(str(nr_comp)), 'rb') as f:
         all_logcov, all_logvar, all_filters, _ = pickle.load(f)
 
@@ -104,62 +104,66 @@ f_logvar = False
 
 acc_mat = np.zeros((10, 11))
 if f_logvar:
+    feat_type = 'var'
     source_data_reshaped = dc(all_logvar_reshaped)
 else:
+    feat_type = 'cov'
     source_data_reshaped = dc(all_logcov_reshaped)
 
 for nr_subj in range(10):
 
-    single_data, single_label = load_data(subject=nr_subj+1, session=0)
-    single_label = le.transform(single_label)
-    ind_train_list = []
-    ind_test_list = []
-    y_train_list = []
-    y_test_list = []
-
-    source_train_list = []
-    source_test_list = []
-    for ind, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
-        sss = StratifiedShuffleSplit(n_splits=1, test_size=(150-nr_train_trial)/150, random_state=0)
-        for ind_train, ind_test in sss.split(single_data, single_label):
-            ind_train_list.append(ind_train)
-            ind_test_list.append(ind_test)
-            y_train_list.append(single_label[ind_train])
-            y_test_list.append(single_label[ind_test])
-            break
-
-        if f_logvar:
-            source_train_list.append(np.empty((nr_train_trial * 2, nr_comp, 12)))
-            source_test_list.append(np.empty((300 - nr_train_trial * 2, nr_comp, 12)))
-        else:
-            source_train_list.append(np.empty((nr_train_trial * 2, int(nr_comp * (nr_comp + 1) / 2), 12)))
-            source_test_list.append(np.empty((300 - nr_train_trial * 2, int(nr_comp * (nr_comp + 1) / 2), 12)))
-
-    import pdb;pdb.set_trace()
-    for ind_band, band in enumerate(range(7, 31, 2)):
-        single_data, single_label = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
+    if pre_load_data:
+        single_data, single_label = load_data(subject=nr_subj+1, session=0)
         single_label = le.transform(single_label)
+        ind_train_list = []
+        ind_test_list = []
+        y_train_list = []
+        y_test_list = []
 
-        for ind_trial, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
-            X_train = single_data[ind_train_list[ind_trial]]
-            X_test = single_data[ind_test_list[ind_trial]]
-            y_train = single_label[ind_train_list[ind_trial]]
-            y_test = single_label[ind_test_list[ind_trial]]
+        source_train_list = []
+        source_test_list = []
+        for ind, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=(150-nr_train_trial)/150, random_state=0)
+            for ind_train, ind_test in sss.split(single_data, single_label):
+                ind_train_list.append(ind_train)
+                ind_test_list.append(ind_test)
+                y_train_list.append(single_label[ind_train])
+                y_test_list.append(single_label[ind_test])
+                break
 
-            sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar=f_logvar, cov_reg='oas')
-            fitted_tssf = sf.fit(X_train, y_train)
-            source_train_list[ind_trial][:, :, ind_band] = fitted_tssf.transform(X_train)
-            source_test_list[ind_trial][:, :, ind_band] = fitted_tssf.transform(X_test)
-            print('Band {0}, Trial {1}'.format(str(ind_band), str(ind_trial)))
-    with open(file_root + 'TSSF_MunichMI_{0}_source.pkl'.format(str(nr_comp)), 'wb') as f:
-        pickle.dump([source_train_list, source_test_list, y_train_list, y_test_list], f)
-    import pdb;pdb.set_trace()
+            if f_logvar:
+                source_train_list.append(np.empty((nr_train_trial * 2, nr_comp, 12)))
+                source_test_list.append(np.empty((300 - nr_train_trial * 2, nr_comp, 12)))
+            else:
+                source_train_list.append(np.empty((nr_train_trial * 2, int(nr_comp * (nr_comp + 1) / 2), 12)))
+                source_test_list.append(np.empty((300 - nr_train_trial * 2, int(nr_comp * (nr_comp + 1) / 2), 12)))
 
+        import pdb;pdb.set_trace()
+        for ind_band, band in enumerate(range(7, 31, 2)):
+            single_data, single_label = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
+            single_label = le.transform(single_label)
+
+            for ind_trial, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
+                X_train = single_data[ind_train_list[ind_trial]]
+                X_test = single_data[ind_test_list[ind_trial]]
+                y_train = single_label[ind_train_list[ind_trial]]
+                y_test = single_label[ind_test_list[ind_trial]]
+
+                sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar=f_logvar, cov_reg='oas')
+                fitted_tssf = sf.fit(X_train, y_train)
+                source_train_list[ind_trial][:, :, ind_band] = fitted_tssf.transform(X_train)
+                source_test_list[ind_trial][:, :, ind_band] = fitted_tssf.transform(X_test)
+                print('Band {0}, Trial {1}'.format(str(ind_band), str(ind_trial)))
+        with open(file_root + 'TSSF_MunichMI_{0}_source.pkl'.format(str(nr_comp)), 'wb') as f:
+            pickle.dump([source_train_list, source_test_list, y_train_list, y_test_list], f)
+    else:
+        with open(file_root + 'TSSF_MunichMI_Comp_{0}_S{1}_source_{2}.pkl'.format(str(nr_comp) ,str(nr_subj), feat_type), 'rb') as f:
+            source_train_list, source_test_list, y_train_list, y_test_list = pickle.load(f)
     X_pool = np.delete(dc(source_data_reshaped), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
 
     trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1.0, C_style='ML', estimator='EmpiricalCovariance')
-    trained.fit_multi_task(X_pool, y_pool, verbose=True, n_jobs=1)
+    trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
 
     for ind, nr_train_trial in enumerate(range(10, 120, 10)):  # range(120, 120, 10)
         individual = trained.clone()
