@@ -22,7 +22,7 @@ from moabb.datasets import MunichMI, BNCI2014001
 from moabb.paradigms import MotorImagery
 from moabb.pipelines.features import TSSF
 from copy import deepcopy as dc
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 import warnings
 
 from pymtl.linear_regression import MTLRegressionClassifier as mtl
@@ -81,31 +81,35 @@ else:
     label = np.int8(label)
 
 le = LabelEncoder().fit(["left_hand", "right_hand"])
-acc_mat = np.zeros((10, 11))
-
+n_repeat = 5
+acc_mat = np.zeros((10, 11, n_repeat))
 for nr_subj in range(10):
 
     X_pool = np.delete(dc(source_data_reshaped), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
 
-    single_data = source_data[nr_subj]
+    single_data = source_data_reshaped[nr_subj]
     single_label = label[nr_subj]
 
     trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1.0, C_style='ML', estimator='EmpiricalCovariance')
-    trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
-    for ind, nr_train_trial in enumerate(range(10, 120, 10)):
-        individual = trained.clone()
-        X_train, X_test, y_train, y_test = train_test_split(
-            single_data, single_label, test_size=(150-nr_train_trial)/150, random_state=0)
+    trained.fit_multi_task(X_pool, y_pool, verbose=True, n_jobs=1)
+    for ind_trial, nr_train_trial in enumerate(range(10, 120, 10)):
 
-        X_train = X_train.reshape(X_train.shape[0], -1)
-        X_test = X_test.reshape(X_test.shape[0], -1)
+        sss = StratifiedShuffleSplit(n_splits=n_repeat, test_size=(150-nr_train_trial)/150, random_state=0)
+        for ind_repeat, (ind_train, ind_test) in enumerate(sss.split(single_data, single_label)):
+            X_train = single_data[ind_train]
+            X_test = single_data[ind_test]
+            y_train = single_label[ind_train]
+            y_test = single_label[ind_test]
 
-        individual.fit(X_train, y_train)
+            individual = trained.clone()
+            individual.fit(X_train, y_train)
 
-        y_predict = np.int8((np.sign(individual.predict(X_test)) + 1) / 2)
-        acc = 1 - np.sum((y_predict - y_test) ** 2) / y_predict.shape[0]
-        acc_mat[nr_subj, ind] = acc
-        print('S_{0}, #Trial_{1}, Accuracy: {2}'.format(str(nr_subj+1), str(nr_train_trial), str(acc)))
-
+            y_predict = np.int8((np.sign(individual.predict(X_test)) + 1) / 2)
+            acc = 1 - np.sum((y_predict - y_test) ** 2) / y_predict.shape[0]
+            acc_mat[nr_subj, ind_trial, ind_repeat] = acc
+            print('S_{0}, #Trial_{1}, Accuracy: {2}'.format(str(nr_subj+1), str(nr_train_trial), str(acc)))
+import pdb;pdb.set_trace()
+with open('MTL_acc.pkl', 'rb') as f:
+    pickle.dump(acc_mat, f)
 import pdb;pdb.set_trace()
