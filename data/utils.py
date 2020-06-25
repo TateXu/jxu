@@ -1,6 +1,88 @@
 import mne
 import numpy as np
 import warnings
+from abc import ABCMeta, abstractmethod
+
+
+class BaseEEG(metaclass=ABCMeta):
+
+    """Base class for EEG preprocessing
+
+    """
+    # ---------------------------------
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    # -------- File opeartion ---------
+    @abstractmethod
+    def load_raw(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def raw_path(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_data(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _get_single_data(self):
+        raise NotImplementedError()
+
+
+    @abstractmethod
+    def save(self):
+        raise NotImplementedError()
+
+    # -------- META info setting ------
+    @abstractmethod
+    def set_montage(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_montage(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def set_trigger_list(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_trigger_list(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def set_bad_channels(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_bad_channels(self):
+        raise NotImplementedError()
+
+
+    # ----------- Preprocessing -------
+    @abstractmethod
+    def filter(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def notch_filter(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def rereference(self):
+        raise NotImplementedError()
+
+
+    # ----------- Sanity Check --------
+    @abstractmethod
+    def trigger_check(self):
+        raise NotImplementedError()
+
+
+
 
 def nibs_event_dict():
     nr_events_predefined = {'Pre_run': 1,
@@ -65,7 +147,7 @@ def nibs_event_dict():
 
 def trigger_detector(raw, event_dict, event_dict_expand, nr_events_predefined):
 
-    
+
     events, event_id = mne.events_from_annotations(raw)
     label_dict = [*event_dict.keys()]
 
