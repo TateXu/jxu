@@ -233,8 +233,8 @@ wav_concat(infiles, outfile)
 
 if not tts:
     file_list = ['qa_intro_1.wav', 'reminder.wav', 'qa_intro_2.wav',  '40Hz_new.wav', 'qa_intro_3.wav',  'C3A_C4A_tone_decrease_1s_new.wav', 'qa_intro_4.wav', 'C4A_C3A_tone_decrease_1s_new.wav','block_intro_start.wav']
-    import pdb 
-    
+    import pdb
+
     pdb.set_trace()
     infiles = [loc + i for i in file_list]
     outfile = loc + 'q_a_update_assr.wav'
@@ -247,25 +247,25 @@ if not tts:
 
 
 file_name = 'intro.mp3'
-ssml="<speak>In this block, we will record muscular and ocular signal. Please following the instructions you heard.</speak>"
+ssml="<speak>In this block, we will record the EEG signal induced by muscular and ocular movement. Please follow the instructions you heard. We will use two reminder sounds to indicate the start and end of each trial, which sounds like this. . Now, if you are ready, press space key to continue.</speak>"
 if tts:
     google_text_to_speech(ssml_string=ssml, audio_location=loc+file_name, speed=0.9, pitch=0.0, lang='en-US')
 else:
     mp3_to_wav(loc+file_name[:-4])
 
-file_name_list = ['eye_horizontal.mp3', 
-             'eye_vertical.mp3', 
-             'eye_circular.mp3', 
-             'eye_blink.mp3', 
-             'frown.mp3', 
-             'head_horizontal.mp3', 
-             'head_vertical.mp3', 
-             'arm.mp3', 
-             'leg.mp3', 
-             'fist.mp3', 
-             'wrist.mp3', 
-             'upper_body.mp3', 
-             'teeth.mp3', 
+file_name_list = ['eye_horizontal.mp3',
+             'eye_vertical.mp3',
+             'eye_circular.mp3',
+             'eye_blink.mp3',
+             'frown.mp3',
+             'head_horizontal.mp3',
+             'head_vertical.mp3',
+             'arm.mp3',
+             'leg.mp3',
+             'fist.mp3',
+             'wrist.mp3',
+             'upper_body.mp3',
+             'teeth.mp3',
              'no_respiration.mp3',
              'respiration.mp3']
 ssml_list = ['<speak>Please move both eyeballs horizontally. </speak>',
