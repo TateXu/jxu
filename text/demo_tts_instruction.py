@@ -3,22 +3,28 @@
 
 tts = False
 
+
+
+
 if tts:
     from jxu.basiccmd.tts import *
 else:
     from jxu.audio.audiosignal import *
-loc='/home/jxu/File/Data/NIBS/Stage_one/Audio/Soundeffect/q_a_40Hz/'
+loc='/home/jxu/File/Experiment/NIBS/Sync/NIBS_paradigm/Soundeffect/artifact/'
+
+# Artifact:
 
 
+file_name = 'af_intro_1.mp3'
+ssml="<speak>In this block, we will ask you to move different parts of your body, please follow the instructions you heard. We will use a reminder sound with increasing pitch to indicate the start of each trial, which sounds like this.</speak>"
+if tts:
+    google_text_to_speech(ssml_string=ssml, audio_location=loc+file_name, speed=0.9, pitch=0.0, lang='en-US')
+else:
+    mp3_to_wav(loc+file_name[:-4])
 
-
-
-if not tts:
-    file_list = ['qa_intro_1.wav', 'reminder.wav', 'qa_intro_2.wav', 'qa_intro_3.wav',  'C3A_C4A_tone_decrease_1s_new.wav', 'qa_intro_4.wav', 'C4A_C3A_tone_decrease_1s_new.wav','block_intro_start.wav']
-    infiles = [loc + i for i in file_list]
-    outfile = loc + 'q_a_update_assr.wav'
-    wav_concat(infiles, outfile, sps=24000)
-
+infiles=['af_intro_1.wav', 'C3A_C4A_tone_decrease_1s_new.wav', 'af_intro_2.wav', 'C4A_C3A_tone_decrease_1s_new.wav', '../block_intro_start.wav']
+outfile='calibration.wav'
+wav_concat(infiles, outfile)
 
 """
 
@@ -241,6 +247,12 @@ if not tts:
     wav_concat(infiles, outfile, sps=24000)
 
 
+
+if not tts:
+    file_list = ['qa_intro_1.wav', 'reminder.wav', 'qa_intro_2.wav', 'qa_intro_3.wav',  'C3A_C4A_tone_decrease_1s_new.wav', 'qa_intro_4.wav', 'C4A_C3A_tone_decrease_1s_new.wav','block_intro_start.wav']
+    infiles = [loc + i for i in file_list]
+    outfile = loc + 'q_a_update_assr.wav'
+    wav_concat(infiles, outfile, sps=24000)
 
 
 # Artifact:
