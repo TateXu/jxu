@@ -40,7 +40,7 @@ def str_generator(subject, session):
 
 def vhdr_load(filename):
 
-    data = rrb(filename, eog=('HEOGL', 'HEOGR', 'VEOGb'), misc='auto',
+    data = rrb(filename, eog=('EOG151', 'EOG152'), misc='auto',
                scale=1.0, preload=True, verbose=None)
 
     return data
