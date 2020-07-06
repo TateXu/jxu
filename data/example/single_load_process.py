@@ -31,7 +31,7 @@ locals().update(vars(local_args))
 nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
 
 if platform.system() == 'Linux':
-    path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'  
+    path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'
 elif platform.system() == 'Darwin':
     path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
 
@@ -81,7 +81,7 @@ if load_raw:
     7. Direction of computation (one-pass forward/reverse, or two-pass forward and reverse)
 
 
-    A non-causal, i.e, two-pass forward and reverse, 5th order Butterworth BP filter between 0.1Hz to 90Hz with transition band 0.1Hz (L) and 90*0.25=18Hz (H). 
+    A non-causal, i.e, two-pass forward and reverse, 5th order Butterworth BP filter between 0.1Hz to 90Hz with transition band 0.1Hz (L) and 90*0.25=18Hz (H).
     """
 
     raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
@@ -140,7 +140,7 @@ if save_clean:
 
     print('------- Saving the raw data into pickle files -------')
     max_file_size = 1.8
-    save_filename = path + '/raw_clean_' 
+    save_filename = path + '/raw_clean_'
     raw_size = 8 * len(raw_clean) * raw_clean.info['nchan'] / (1024**3)
     nr_save_raw = int(np.ceil(raw_size / max_file_size))
 
@@ -155,14 +155,14 @@ if save_clean:
 
         with open(save_filename + str(save_ind) + '.pkl', 'wb') as f:
             pickle.dump(raw_seg, f)
-        print(str(save_ind + 1) + '/' + str(nr_save_raw) + ' saved!')    
+        print(str(save_ind + 1) + '/' + str(nr_save_raw) + ' saved!')
 
 if load_clean:
     print('------- Loading the raw data from pickle files -------')
     nr_load_raw = 3
     load_filename = path + '/raw_clean_'
     for load_ind in range(nr_load_raw):
-        print('Loading ' + str(load_ind + 1) + '/' + str(nr_load_raw) + '!')    
+        print('Loading ' + str(load_ind + 1) + '/' + str(nr_load_raw) + '!')
         with open(load_filename + str(load_ind) + '.pkl', 'rb') as f:
             temp = pickle.load(f)
         if load_ind == 0:
@@ -185,7 +185,7 @@ filter_epoch = True
 if epoch_clean:
 
     print('------- Epoching the raw files -------')
-    
+
 
     if not erp_flag:
         # ----- Trialwise data extraction -----------
@@ -202,10 +202,10 @@ if epoch_clean:
                       'QA_ans_start': [2.2, 160]}
     X = {}
     events_clean, event_clean_id = mne.events_from_annotations(raw_clean)
-    
+
     pdb.set_trace()
     for ind, (key, val) in enumerate(epoch_list.items()):
-        
+
         if erp_flag:
             epochs = mne.Epochs(raw_clean, events_clean,
                     event_id=[event_dict_expand[key]],
@@ -345,11 +345,11 @@ for run in range(4):
         for id_chn, chn in enumerate(chn_list):
             fig_title = name + '_' + chn + '_all_' + str(run)
             X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False, axes=outer_list[id_name*4 + id_chn])[0]  # No response
-            
+
     fig.savefig('Results/a_all_run_' + str(run) + '.pdf')
 
 
-import pdb 
+import pdb
 pdb.set_trace()
 
 
@@ -380,7 +380,7 @@ for run in range(4):
             X['QA_' + name + '_sorted'][run].plot_image(picks=[chn], title=fig_title, show=False, axes=outer_list[len(chn_list)*2 + id_chn])[0]  # No response
         fig.savefig('Results/a_' + name + '_run_' + str(run) + '.pdf')
 
-import pdb 
+import pdb
 pdb.set_trace()
 
 
@@ -413,8 +413,8 @@ for name in ['audio', 'rec', 'cen_word']:
         for id_suffix, suffix in enumerate(['_fastest_answer_', '_no_answer_', '_all_']):
             fig_title = name + '_' + chn + suffix + str(run)
             file = 'Results/a_' + fig_title + '.pdf'
-            axs[id_suffix, id_chn].imshow(mpimg.imread(file)) 
-            axs[id_suffix, id_chn].set_axis_off() 
+            axs[id_suffix, id_chn].imshow(mpimg.imread(file))
+            axs[id_suffix, id_chn].set_axis_off()
     fig.savefig('a_' + name + '.pdf')
 pdb.set_trace()
 pdb.set_trace()
@@ -484,7 +484,7 @@ if plt_flag:
                     fig_unit_width=3, fig_height=None, fig_width=None)
 pdb.set_trace()
 meta_extract_flag = True
-if meta_extract_flag: 
+if meta_extract_flag:
 
     cali_trial = np.asarray([[114, 132, 93 , 173, 139, 174, 50, 16, 57, 118],
                              [136, 34, 167, 133, 88, 78, 134, 25, 67, 104]])
@@ -520,7 +520,7 @@ if meta_extract_flag:
 
         match_list = []
         exceed_list = []
-        zero_cnt = 0 
+        zero_cnt = 0
         exceed_cnt = 0
         for ind in list_trial:
             cen_s = meta_infomat[ind, 1]
@@ -566,7 +566,7 @@ if meta_extract_flag:
                             [17, 146],
                             [20, 69],
                             [33, 130],  # 138 == 130
-                            [41, 101], 
+                            [41, 101],
                             [49, 116],  # 48-80 are with not recordings.
                             [50, 20],
                             [54, 5],

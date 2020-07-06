@@ -95,9 +95,11 @@ class NIBSEEG():
 
         return self
 
-    def get_data(self):
-        pass
-
+    def get_data(self, filter_flag=True):
+        if filter_flag:
+            return self.filtered_data
+        else:
+            return self.raw_data
 
     def _get_single_data(self):
         pass
