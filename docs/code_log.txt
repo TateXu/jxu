@@ -1,0 +1,13 @@
+2020.7.7
+
+1. mne.read_raw_brainvisions()
+
+
+	make_dig_montage(ch_pos=OrderedDict(zip(ch_names, pos)))
+	-> 
+	make_dig_montage(ch_pos=OrderedDict(zip(ch_names, pos)), coord_frame='head')
+
+2. BC TMS 128: bvef file
+
+	GND -> Afz
+	REF- > FCz
