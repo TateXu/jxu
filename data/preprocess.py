@@ -110,8 +110,30 @@ class NIBSEEG():
         pass
 
 
+    def concat_crop(self):
+        self.concat_data = True
+
     def save(self):
-        pass
+        max_file_size = 1.8
+        save_filename = path + '/raw_seg_'
+
+        data  = self.concat_data.copy()
+        raw_size = 8 * len(data) * data.info['nchan'] / (1024**3)
+        nr_save_raw = int(np.ceil(raw_size / max_file_size))
+
+        hard_limit = int(max_file_size *  (1024**3) / data.info['nchan'] / 8)
+
+        for save_ind in range(nr_save_raw):
+            start_ind = hard_limit * save_ind
+            end_ind = start_ind + hard_limit if save_ind != nr_save_raw - 1 else len(data)
+            data_save = data[:, start_ind: end_ind]
+            ts_save = data_save[1]
+            raw_seg = data.copy().crop(tmin=ts_save[0], tmax=ts_save[-1], include_tmax=True)
+
+            with open(save_filename + str(save_ind) + '.pkl', 'wb') as f:
+                pickle.dump(raw_seg, f)
+            print(str(save_ind + 1) + '/' + str(nr_save_raw) + ' saved!')
+
 
     # -------- META info setting ------
 
