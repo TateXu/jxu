@@ -32,7 +32,7 @@ class NIBSEEG():
     def __init__(self, subject=1, session=0, nr_seg=2, bands=[(0.1, 70.0)],
                  root='/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/',
                  filter_para=dict(method='iir', iir_params=dict(order=5, ftype='butter')),
-                 reref='CA'):
+                 reref='CA', bad_chn_list=None):
 
         self.subject = subject
         self.session = session
@@ -41,6 +41,7 @@ class NIBSEEG():
         self.root = root
         self.reref = reref
         self.filter_para = filter_para
+        self.bad_chn_list = bad_chn_list
         self.subject_list = {'test': [],
                              'TES': [10, 0, 40, 4],
                              'NUK': [40, 4, 10, 0],
@@ -97,8 +98,12 @@ class NIBSEEG():
 
     def get_data(self, filter_flag=True):
         if filter_flag:
+            if not hasattr(self, 'filtered_data') or self.filtered_data is None:
+                self.raw_filter()
             return self.filtered_data
         else:
+            if not hasattr(self, 'raw_data') or self.raw_data is None:
+                self.raw_load()
             return self.raw_data
 
     def _get_single_data(self):
@@ -111,12 +116,41 @@ class NIBSEEG():
     # -------- META info setting ------
 
     def set_montage(self):
-        pass
+        if self.bad_chn_list is not None:
+            bad_chn_dict = dict.fromkeys(self.bad_chn_list, 'stim')
+        else:
+            bad_chn_dict = None
+        montage = mne.channels.read_custom_montage(
+            '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/BC-TMS-128.bvef', unit='auto')
+        for temp_data in self.raw_data:
+            temp_data.set_montage(montage)
+            if bad_chn_dict is not None:
+                temp_data.set_channel_types(bad_chn_dict)
 
+        return self
 
     def get_montage(self):
         pass
 
+    def plot_montage(self, axes='mlab3D', name=False, surfaces='head'):
+
+        if axes == 'mlab3D':
+            from mayavi import mlab
+            import os.path as op
+
+            import mne
+            from mne.channels.montage import get_builtin_montages
+            from mne.datasets import fetch_fsaverage
+            from mne.viz import plot_alignment
+
+            subjects_dir = op.dirname(fetch_fsaverage())
+            fig = plot_alignment(self.raw_data[0].info, trans=None, subject='fsaverage',
+                                 subjects_dir=subjects_dir, eeg=['projected'],
+                                 surfaces=surfaces)
+        elif axes == '2D' or axes=='topo':
+            self.raw_data[0].info.plot(kind='topomap', show_names=name)
+        elif axes == 'xyz3D':
+            self.raw_data[0].info.plot(kind='3d')
 
     def set_trigger_list(self):
         pass
