@@ -8,6 +8,8 @@
 #========================================
 
 from jxu.data.loader import *
+
+import os
 import numpy as np
 from numpy.fft import fft, fftfreq
 from scipy import signal
@@ -43,13 +45,13 @@ class NIBSEEG():
         self.filter_para = filter_para
         self.bad_chn_list = bad_chn_list
         self.subject_list = {'test': [],
-                             'TES': [10, 0, 40, 4],
+                             'TES': [10, 4, 0, 40],
                              'NUK': [40, 4, 10, 0],
                              'OSA': [0, 40, 10, 4],
                              'KNL': [4, 10, 40, 0],
                              'ZYC': [40, 10, 4, 0],
                              'CCH': [0, 4, 10, 40],
-                             'DSW': [10, 0, 40, 4],
+                             'DWS': [10, 0, 40, 4],
                              'VQT': [4, 0, 40, 10],
                              'BXB': [0, 10, 40, 4],
                              'BMC': [0, 40, 4, 10],
@@ -73,6 +75,9 @@ class NIBSEEG():
         self.eeg_folder = '{0}/Session_{1}/'.format(self.subj_id, str(int(self.session)))
         self.audio_folder = '{0}/Audio/Session_{1}/Exp_data/'.format(
             self.subj_id, str(int(self.session)).zfill(2))
+
+        DIR = self.root + self.eeg_folder
+        self.nr_seg = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))]) // 3
         self.eeg_file_path_list = [
             '{0}{1}_seg_{2}.vhdr'.format(
                 self.eeg_folder, self.subj_id, str(i)) for i in range(self.nr_seg)]
@@ -117,7 +122,7 @@ class NIBSEEG():
         max_file_size = 1.8
         save_filename = path + '/raw_seg_'
 
-        data  = self.concat_data.copy()
+        data = self.concat_data.copy()
         raw_size = 8 * len(data) * data.info['nchan'] / (1024**3)
         nr_save_raw = int(np.ceil(raw_size / max_file_size))
 
@@ -160,8 +165,6 @@ class NIBSEEG():
             from mayavi import mlab
             import os.path as op
 
-            import mne
-            from mne.channels.montage import get_builtin_montages
             from mne.datasets import fetch_fsaverage
             from mne.viz import plot_alignment
 
