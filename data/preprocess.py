@@ -17,7 +17,10 @@ import matplotlib.pyplot as plt
 from itertools import product
 from mne.viz import plot_epochs_image
 import platform
+from copy import deepcopy
 
+from pydub import AudioSegment
+from scipy.io import wavfile # scipy library to read wav files
 import mne
 
 import warnings
@@ -82,19 +85,6 @@ class NIBSEEG(NIBS):
         self.reref = reref
         self.filter_para = filter_para
         self.bad_chn_list = bad_chn_list
-        self.subject_list = {'test': [],
-                             'TES': [10, 4, 0, 40],
-                             'NUK': [40, 4, 10, 0],
-                             'OSA': [0, 40, 10, 4],
-                             'KNL': [4, 10, 40, 0],
-                             'ZYC': [40, 10, 4, 0],
-                             'CCH': [0, 4, 10, 40],
-                             'DWS': [10, 0, 40, 4],
-                             'VQT': [4, 0, 40, 10],
-                             'BXB': [0, 10, 40, 4],
-                             'BMC': [0, 40, 4, 10],
-                             'ZWS': [10, 0, 40, 4]}
-
     # -------- File opeartion ---------
 
     def raw_load(self):
@@ -243,40 +233,100 @@ class NIBSAudio(NIBS):
         # load default denoise level and other parameters, e.g. skip, etc.
         super().__init__(subject=subject, session=session, root=root)
 
-        self.nr_cali_trial = 10
-        self.nr_qa_trial = 200
         self.nr_run = 4
         self.nr_block = 2
-        self.nr_run_trial = self.nr_run * self.nr_qa_trial
-        self.nr_block_trial = self.nr_qa_trial
 
-    def audio_load(self, preload=False):
+        self.nr_cali_trial = 10
+        self.nr_block_trial = 25
+        self.nr_run_trial = self.nr_block * self.nr_block_trial
+        self.nr_qa_trial = self.nr_run * self.nr_run_trial
+
+
+    def audio_load(self, preload=False, pkg='AudioSegment', std=False):
+
+        self.load_std = deepcopy(std)
+        if std:
+            print('Load standardised audio file: 24k sps, mono channel')
+            std_suffix = '_std'
+        else:
+            std_suffix = ''
+
+        self.cali_pre_file = [
+            self.audio_folder +
+            'rec_cali_de_pre_trial_{0}{1}.wav'.format(
+                str(id_trial).zfill(3), std_suffix) for id_trial in range(self.nr_cali_trial)]
+        self.cali_post_file = [
+            self.audio_folder +
+            'rec_cali_de_post_trial_{0}{1}.wav'.format(
+                str(id_trial).zfill(3), std_suffix) for id_trial in range(self.nr_cali_trial)]
+
+        self.qa_file = []
+        for id_qa_trial in range(self.nr_qa_trial):
+
+            v1, v2 = divmod(id_qa_trial, self.nr_run_trial)
+            id_run, id_block, id_trial = (v1,) + divmod(v2, self.nr_block_trial)
+
+            self.qa_file.append(
+                self.audio_folder +
+                'rec_QA_run_{0}_block_{1}_trial_{2}{3}.wav'.format(
+                    str(id_run).zfill(2),
+                    str(id_block).zfill(3),
+                    str(id_trial).zfill(3)),
+                    std_suffix
+                )
+
+        self.audio_filename_list = [self.cali_pre_file, self.qa_file,
+                                    self.cali_post_file]
 
         if preload:
-            self.cali_pre_file = [
-                self.audio_folder + \
-                'rec_cali_de_pre_trial_{nr_trial}_std.wav'.format(
-                    str(id_trial).zfill(3)) for id_trial in nr_cali_trial]
-            self.cali_post_file = [
-                self.audio_folder + \
-                'rec_cali_de_post_trial_{nr_trial}_std.wav'.format(
-                    str(id_trial).zfill(3)) for id_trial in nr_cali_trial]
-
-            for id_qa_trial in nr_qa_trial:
-                v1, v2 = divmod(id_qa_trial, nr_run_trial)
-                id_run, id_block, id_trial = (v2,) + divmod(v1, nr_block_trial)
-
-                self.qa_file.append(
-                    self.audio_folder + \
-                    'rec_QA_run_{0}_block_{1}_trial_{2}.wav'.format(
-                        str(id_run).zfill(2),
-                        str(id_block).zfill(3),
-                        str(id_trial).zfill(3))
-                    )
+            # add a logger
+            print('Loading audio file into self.audio_file_list')
+            self.audio_file_list = []
+            if pkg == 'scipy':
+                for id_list in self.audio_filename_list:
+                    [self.audio_file_list.append(
+                        wavfile.read(
+                            single_audio_file)) for single_audio_file in id_list]
+            elif pkg == 'AudioSegment':
+                for id_list in self.audio_filename_list:
+                    [self.audio_file_list.append(
+                        AudioSegment.from_file(
+                            single_audio_file)) for single_audio_file in id_list]
+            else:
+                raise ValueError('Unsupported input for keyword pkg.\n'
+                                 'Use scipy or AudioSegment')
+        else:
+            print('Loading audio file names into self.audio_filename_list')
 
 
+        return self
 
-    def audio2seg(self):
+
+    def audio_format_check(self):
+
+        para_list = np.asarray(
+            [[ sg_file.frame_rate, sg_file.frame_width, sg_file.channels] for sg_file in self.audio_file_list]
+            )
+        if len(np.unique(para_list).shape) == 1:
+            return self
+        else:
+            raise ValueError('Inconsistent audio data format!:')
+        pass
+        # Recorded audio: 44100 sps, 32bit (4 Bytes), mono
+        # Google TTS: 24000 sps, 16bit, mono
+        # wav_std(audio_loader(subject=0, session=1, trial=nr_trial, std=False), sps=44100)
+
+    def audio_clean(self, save=False):
+
+        if hasattr(self, load_std) and hasattr(self, audio_file_list):
+            std = deepcopy(self.load_std)
+        else:
+            raise ValueError('Please load std audio file first: \n'
+                             'Run self.audio_load(preload=True, std=True)')
+
+        return self
+
+    def audio_to_seg(self):
         pass
 
     def seg_marker(self):
@@ -296,7 +346,7 @@ class NIBSAudio(NIBS):
         # merge valid answer into censored question audio
         pass
 
-    def answer2text(self):
+    def answer_to_text(self):
 
         # use google speech to text and remove excessive text
         pass
