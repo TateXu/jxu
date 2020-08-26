@@ -302,19 +302,31 @@ class NIBSAudio(NIBS):
         return self
 
 
-    def audio_format_check(self):
+    def audio_format_check(self, audio_type='answer'):
+        # Recorded answer: 44100 sps, 32bit (4 Bytes), mono
+        # Google TTS: 24000 sps, 16bit, mono
+
+        if audio_type == 'answer':
+            try:
+                self.format_check_list = deepcopy(self.audio_file_list)
+            except:
+                raise ValueError('Load the answer audio first!')
+        elif audio_type == 'question':
+            try:
+                self.format_check_list = deepcopy(self.question_file_list)
+            except:
+                raise ValueError('Load the answer audio first!')
 
         para_list = np.asarray(
-            [[ sg_file.frame_rate, sg_file.frame_width, sg_file.channels] for sg_file in self.audio_file_list]
+            [[sg_file.frame_rate, sg_file.frame_width, sg_file.channels] for sg_file in self.audio_file_list]
             )
         if len(np.unique(para_list).shape) == 1:
             return self
         else:
-            raise ValueError('Inconsistent audio data format!:')
-        pass
-        # Recorded audio: 44100 sps, 32bit (4 Bytes), mono
-        # Google TTS: 24000 sps, 16bit, mono
-        # wav_std(audio_loader(subject=0, session=1, trial=nr_trial, std=False), sps=44100)
+            raise ValueError('Audio data format is not unique')
+
+       return self
+       # wav_std(audio_loader(subject=0, session=1, trial=nr_trial, std=False), sps=44100)
 
     def audio_clean(self, save=False):
 
