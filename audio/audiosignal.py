@@ -1,6 +1,6 @@
 import sys
 import wave
-import subprocess 
+import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -19,8 +19,11 @@ from scipy.io import wavfile
 import noisereduce as nr
 from scipy.io import wavfile # scipy library to read wav files
 from mne.filter import notch_filter
+import os
+from jxu.basiccmd.mycmd import create_folder
 
-def audio_denoise(filename, type='notch', basefreq=2000, increment=1000, process=False, denoise_level=4):
+def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
+                  process=False, denoise_level=4, new_folder=True):
     if process:
         fs, Audiodata = wavfile.read(filename)
         noisy_part = [wavfile.read('noise.wav')[1],
@@ -31,13 +34,24 @@ def audio_denoise(filename, type='notch', basefreq=2000, increment=1000, process
                       wavfile.read('noise_door_1.wav')[1],
                       wavfile.read('noise_door_2.wav')[1]]
         reduced_noise = notch_filter(Audiodata.astype(float), fs,
-                                     freqs=np.arange(basefreq, (fs - 100) / 2, increment),
+                                     freqs=np.arange(
+                                         basefreq, (fs - 100) / 2, increment),
                                      method='fir')
         for incre_level in range(denoise_level):
-            reduced_noise = nr.reduce_noise(audio_clip=reduced_noise.astype(float), noise_clip=noisy_part[incre_level].astype(float), verbose=False)
+            reduced_noise = nr.reduce_noise(
+                audio_clip=reduced_noise.astype(float),
+                noise_clip=noisy_part[incre_level].astype(float),
+                verbose=False)
 
         filtered_audio_int = np.int16(reduced_noise)
-        sci_write(filename[:-4] + '_filtered_' + str(denoise_level) + '.wav', fs, filtered_audio_int)
+
+        if new_folder:
+            new_folder_name = '{0}/Filtered_{1}/'.format(
+                '/'.join(filename.split('/')[:-1]), str(denoise_level))
+            create_folder(new_folder_name)
+            sci_write(new_folder_name + filename.split('/')[-1])
+        else:
+            sci_write(filename[:-4] + '_filtered_' + str(denoise_level) + '.wav', fs, filtered_audio_int)
 
     try:
         return filename[:-4] + '_filtered_' + str(denoise_level) + '.wav'
@@ -103,7 +117,7 @@ def wav_edit(infile, nchn=1, samplewidth=2, sps=24000, cut=False, start=0.0, end
     if std_flag:
         sound = AudioSegment.from_file('standard_' + infile)
     else:
-        sound = AudioSegment.from_file(infile)  
+        sound = AudioSegment.from_file(infile)
 
 
     audio_len = len(sound)
@@ -134,14 +148,14 @@ def wav_edit(infile, nchn=1, samplewidth=2, sps=24000, cut=False, start=0.0, end
         outfile = 'add_silence_' + str(silence_dur) + 'ms_start_' + str(silence_start) + '_' + infile
 
     if speed != 1.0:
-        outfile = 'speed_' + str(speed) + '_' + infile 
+        outfile = 'speed_' + str(speed) + '_' + infile
         if speed_optimal:
             subprocess.call(['ffmpeg', '-i', infile, '-filter:a', "atempo=" + str(speed), '-vn', outfile])
 
             return print("Output file:" + outfile)
         else:
             edit_audio = speed_change(sound, speed)
-        
+
 
     if outfile == None or edit_audio == None:
         edit_audio = sound
@@ -180,7 +194,7 @@ def wav_concat(infiles, outfile, nchn=1, samplewidth=2, sps=44100):
 
 
 def audio_spec(AudioName):
-    # Not self-written, refered from: 
+    # Not self-written, refered from:
     # https://stackoverflow.com/questions/24382832/audio-spectrum-extraction-from-audio-file-by-python
 
     fs, Audiodata = wavfile.read(AudioName)
@@ -211,17 +225,17 @@ def audio_spec(AudioName):
 
     # spectrum
     from scipy.fftpack import fft # fourier transform
-    n = len(Audiodata) 
+    n = len(Audiodata)
     AudioFreq = fft(Audiodata)
     AudioFreq = AudioFreq[0:int(np.ceil((n+1)/2.0))] #Half of the spectrum
     MagFreq = np.abs(AudioFreq) # Magnitude
     MagFreq = MagFreq / float(n)
     # power spectrum
     MagFreq = MagFreq**2
-    if n % 2 > 0: # ffte odd 
+    if n % 2 > 0: # ffte odd
         MagFreq[1:len(MagFreq)] = MagFreq[1:len(MagFreq)] * 2
     else:# fft even
-        MagFreq[1:len(MagFreq) -1] = MagFreq[1:len(MagFreq) - 1] * 2 
+        MagFreq[1:len(MagFreq) -1] = MagFreq[1:len(MagFreq) - 1] * 2
 
     plt.figure()
     freqAxis = np.arange(0,int(np.ceil((n+1)/2.0)), 1.0) * (fs / n);
@@ -264,7 +278,7 @@ def audio_onedim(filename, wav=True, metric='default', pflag=True, sps=44100.0):
         sig = signal
     elif metric == 'dBFS':
         sig = 20*np.log10(abs(signal)/maxValue)
-    
+
     if pflag:
         plt.figure(1)
         plt.title("Signal Wave")
@@ -296,7 +310,7 @@ def plain_beep(dur, freq=440, vol=0.5, sps=24000, bit=16, chn=1):
 # beep_generator('C5_A_tone_flat_3quater_s.wav', tone='flat', slice_duration=0.75, beep_freq=[1760.0])
 def beep_generator(file_name, file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Soundeffect/',
                    slice_duration=1.0, tone='flat', vol=0.3, sps=44100, beep_freq=440.0):
-    
+
     if tone == 'flat':
         amp = vol
     elif tone == 'increase':
@@ -312,7 +326,7 @@ def beep_generator(file_name, file_root='/home/jxu/File/Data/NIBS/Stage_one/Audi
     esm = np.arange(slice_duration * sps)
     wf_full = np.empty(0,)
 
-    for freq in beep_freq:    
+    for freq in beep_freq:
         wf = np.sin(2 * np.pi * esm * freq / sps)
         wf_slice = wf * amp
         wf_full = np.concatenate((wf_full, wf_slice))
@@ -338,7 +352,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                 ('META_INFO', 'tag_list'), ('META_INFO', 'n_tag'),
                 ('SENTENCE_INFO', 'article_id'), ('SENTENCE_INFO', 'sen_id'), ('SENTENCE_INFO', 'sen_content'),
                 ('SENTENCE_INFO', 'beeped_sen_content'),
-                ('SENTENCE_INFO', 'beep_word_type'), ('SENTENCE_INFO', 'beeped_word'), ('SENTENCE_INFO', 'beeped_word_duration'), 
+                ('SENTENCE_INFO', 'beep_word_type'), ('SENTENCE_INFO', 'beeped_word'), ('SENTENCE_INFO', 'beeped_word_duration'),
                 ('SENTENCE_INFO', 'beeped_word_timestamp_start'), ('SENTENCE_INFO', 'beeped_word_timestamp_end'),
                 ('SENTENCE_INFO', 'sentence_duration'),
                 ('EXP_INFO', 'S01'), ('EXP_INFO', 'S02'), ('EXP_INFO', 'S03'), ('EXP_INFO', 'S04'), ('EXP_INFO', 'S05'),
@@ -369,7 +383,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
         break_list = {'VERB': 2000, 'NOUN': 1800, 'ADJ': 1600, 'DET': 1400, 'ADV': 1200, 'AUX': 1000}
         # tag_list = [word_tag for word_tag in sen_tag if (word_tag[0] not in punc ) or (word_tag[1] not in [*break_list.keys()] )]
         tag_list = [word_tag for word_tag in sen_tag if word_tag[0] not in punc]
-        
+
         n_tag = len(tag_list)
 
         if n_chunk != n_tag:
@@ -385,7 +399,7 @@ def beep_censoring(file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/
                 print("No matching word type " + beep_word_type + " in the sentence! Path: " + sen_folder_path)
             elif len(beep_ind) > 1:
                 print("More than ONE word will be replaced with beeping noise!")
-            
+
             for itr_ind in range(len(beep_ind)):
                 chunk_ind = beep_ind[itr_ind][0]
                 beeped_chunk = chunk_folder_path + "chunk{0}.wav".format(chunk_ind)
@@ -528,7 +542,7 @@ def remove_silence(sound, silence_threshold=-80.0):
 
 
 def minimal_audio_to_chunk(audio_name, chunk_folder_path=None, save=True):
-        
+
     min_amp = audio_onedim(audio_name, wav=True, metric='dBFS', pflag=False)
 
     sound_file = AudioSegment.from_wav(audio_name)
@@ -541,7 +555,7 @@ def minimal_audio_to_chunk(audio_name, chunk_folder_path=None, save=True):
             out_file = chunk_folder_path + "chunk{0}.wav".format(i)
             print("exporting" + out_file)
             chunk.export(out_file, format="wav")
-        
+
         print("All audio files are chunked into word/phrase level and saved!")
 
     return audio_chunks
