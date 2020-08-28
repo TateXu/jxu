@@ -17,22 +17,34 @@ from pydub.silence import split_on_silence
 import re
 from scipy.io import wavfile
 import noisereduce as nr
-from scipy.io import wavfile # scipy library to read wav files
 from mne.filter import notch_filter
 import os
 from jxu.basiccmd.mycmd import create_folder
 
 def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
                   process=False, denoise_level=4, new_folder=True):
+
+    if new_folder:
+        new_folder_name = '{0}/Filtered_{1}/'.format(
+            '/'.join(filename.split('/')[:-1]), str(denoise_level))
+        create_folder(new_folder_name)
+        new_file_name = new_folder_name + filename.split('/')[-1]
+    else:
+        new_file_name = filename[:-4] + '_filtered_' + \
+            str(denoise_level) + '.wav'
+
     if process:
         fs, Audiodata = wavfile.read(filename)
-        noisy_part = [wavfile.read('noise.wav')[1],
-                      wavfile.read('noise_desk.wav')[1],
-                      wavfile.read('noise_desk_book.wav')[1],
-                      wavfile.read('noise_mouse.wav')[1],
-                      wavfile.read('noise_walking.wav')[1],
-                      wavfile.read('noise_door_1.wav')[1],
-                      wavfile.read('noise_door_2.wav')[1]]
+
+        noise_path = '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/audio/noise_sample/'
+        noisy_part = [wavfile.read(noise_path + 'noise_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_desk_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_desk_book_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_mouse_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_walking_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_door_1_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_door_2_44100.wav')[1]]
+
         reduced_noise = notch_filter(Audiodata.astype(float), fs,
                                      freqs=np.arange(
                                          basefreq, (fs - 100) / 2, increment),
@@ -44,21 +56,13 @@ def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
                 verbose=False)
 
         filtered_audio_int = np.int16(reduced_noise)
-
-        if new_folder:
-            new_folder_name = '{0}/Filtered_{1}/'.format(
-                '/'.join(filename.split('/')[:-1]), str(denoise_level))
-            create_folder(new_folder_name)
-            new_file_name = new_folder_name + filename.split('/')[-1]
-        else:
-            new_file_name = filename[:-4] + '_filtered_' + \
-                str(denoise_level) + '.wav'
-
         sci_write(new_file_name, fs, filtered_audio_int)
-        try:
-            return new_file_name
-        except (ValueError, TypeError, NameError):
-            print('Please turn on the process flag for the first time denoising!')
+    else:
+        if not os.path.exists(new_file_name):
+            raise ValueError('Turn on process flag for first running denoising.')
+
+    return new_file_name
+
 
 def speed_change(sound, speed=1.0):
     # NOT SELF WRITTEN!!!!!
@@ -74,17 +78,23 @@ def speed_change(sound, speed=1.0):
      # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
-def wav_std(in_filename, sps=24000, bit=16, channel=1, std_suffix='_std'):
+
+def wav_std(in_filename, sps=24000, bit=16, channel=1, std_suffix='_std',
+            force=False):
+
     if in_filename[-4:] == '.wav':
         filename = in_filename[:-4]
     else:
         filename = in_filename
 
-    subprocess.call(['ffmpeg', '-i', filename + '.wav',
-                     '-ac', str(channel),
-                     '-ar', str(sps),
-                     '-sample_fmt', 's'+str(bit),
-                     '-y', filename + std_suffix + '.wav'])
+    if (not os.path.exists(filename + std_suffix + '.wav')) or (force==True):
+        subprocess.call(['ffmpeg', '-i', filename + '.wav',
+                         '-ac', str(channel),
+                         '-ar', str(sps),
+                         '-sample_fmt', 's'+str(bit),
+                         '-y', filename + std_suffix + '.wav'])
+
+    return filename + std_suffix + '.wav'
 
 def mp3_to_wav(filename, sps=24000, bit=16, channel=1, std_suffix=''):
     """

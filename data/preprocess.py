@@ -242,7 +242,8 @@ class NIBSAudio(NIBS):
         self.nr_qa_trial = self.nr_run * self.nr_run_trial
 
 
-    def audio_load(self, preload=False, pkg='AudioSegment', std=False):
+    def audio_load(self, preload=False, pkg='AudioSegment', audio_type='answer', std=False):
+
 
         self.load_std = deepcopy(std)
         if std:
@@ -251,55 +252,62 @@ class NIBSAudio(NIBS):
         else:
             std_suffix = ''
 
-        self.cali_pre_file = [
-            self.audio_folder +
-            'rec_cali_de_pre_trial_{0}{1}.wav'.format(
-                str(id_trial).zfill(3), std_suffix) for id_trial in range(self.nr_cali_trial)]
-        self.cali_post_file = [
-            self.audio_folder +
-            'rec_cali_de_post_trial_{0}{1}.wav'.format(
-                str(id_trial).zfill(3), std_suffix) for id_trial in range(self.nr_cali_trial)]
-
-        self.qa_file = []
-        for id_qa_trial in range(self.nr_qa_trial):
-
-            v1, v2 = divmod(id_qa_trial, self.nr_run_trial)
-            id_run, id_block, id_trial = (v1,) + divmod(v2, self.nr_block_trial)
-
-            self.qa_file.append(
+        if audio_type == 'answer':
+            self.cali_pre_file = [
                 self.audio_folder +
-                'rec_QA_run_{0}_block_{1}_trial_{2}{3}.wav'.format(
-                    str(id_run).zfill(2),
-                    str(id_block).zfill(3),
-                    str(id_trial).zfill(3)),
-                    std_suffix
-                )
+                'rec_cali_de_pre_trial_{0}{1}.wav'.format(
+                    str(id_trial).zfill(3), std_suffix) for id_trial in range(self.nr_cali_trial)]
+            self.cali_post_file = [
+                self.audio_folder +
+                'rec_cali_de_post_trial_{0}{1}.wav'.format(
+                    str(id_trial).zfill(3), std_suffix) for id_trial in range(self.nr_cali_trial)]
 
-        self.audio_filename_list = [self.cali_pre_file, self.qa_file,
-                                    self.cali_post_file]
+            self.qa_file = []
+            for id_qa_trial in range(self.nr_qa_trial):
 
-        if preload:
-            # add a logger
-            print('Loading audio file into self.audio_file_list')
-            self.audio_file_list = []
-            if pkg == 'scipy':
-                for id_list in self.audio_filename_list:
-                    [self.audio_file_list.append(
-                        wavfile.read(
-                            single_audio_file)) for single_audio_file in id_list]
-            elif pkg == 'AudioSegment':
-                for id_list in self.audio_filename_list:
-                    [self.audio_file_list.append(
-                        AudioSegment.from_file(
-                            single_audio_file)) for single_audio_file in id_list]
+                v1, v2 = divmod(id_qa_trial, self.nr_run_trial)
+                id_run, id_block, id_trial = (v1,) + divmod(v2, self.nr_block_trial)
+
+                self.qa_file.append(
+                    self.audio_folder +
+                    'rec_QA_run_{0}_block_{1}_trial_{2}{3}.wav'.format(
+                        str(id_run).zfill(2),
+                        str(id_block).zfill(3),
+                        str(id_trial).zfill(3)),
+                        std_suffix
+                    )
+
+            self.audio_filename_list = [self.cali_pre_file, self.qa_file,
+                                        self.cali_post_file]
+            if preload:
+                self.answer_file_list = self.preload(pkg=pkg)
+                print('Loading audio files into self.question_file_list')
             else:
-                raise ValueError('Unsupported input for keyword pkg.\n'
-                                 'Use scipy or AudioSegment')
-        else:
-            print('Loading audio file names into self.audio_filename_list')
-
+                self.answer_file_list = None
+                print('Loading audio file names into self.audio_filename_list')
+        elif audio_type == 'question':
+            pass
 
         return self
+
+    def preload(self, pkg):
+        # add a logger
+        self.audio_file_list = []
+        if pkg == 'scipy':
+            for id_list in self.audio_filename_list:
+                [self.audio_file_list.append(
+                    wavfile.read(
+                        single_audio_file)) for single_audio_file in id_list]
+        elif pkg == 'AudioSegment':
+            for id_list in self.audio_filename_list:
+                [self.audio_file_list.append(
+                    AudioSegment.from_file(
+                        single_audio_file)) for single_audio_file in id_list]
+        else:
+            raise ValueError('Unsupported input for keyword pkg.\n'
+                                'Use scipy or AudioSegment')
+
+        return self.audio_file_list
 
 
     def audio_format_check(self, audio_type='answer'):
@@ -308,24 +316,24 @@ class NIBSAudio(NIBS):
 
         if audio_type == 'answer':
             try:
-                self.format_check_list = deepcopy(self.audio_file_list)
+                self.format_check_list = deepcopy(self.answer_file_list)
             except:
                 raise ValueError('Load the answer audio first!')
         elif audio_type == 'question':
             try:
                 self.format_check_list = deepcopy(self.question_file_list)
             except:
-                raise ValueError('Load the answer audio first!')
+                raise ValueError('Load the question audio first!')
 
         para_list = np.asarray(
-            [[sg_file.frame_rate, sg_file.frame_width, sg_file.channels] for sg_file in self.audio_file_list]
+            [[sg_file.frame_rate, sg_file.frame_width, sg_file.channels] for sg_file in self.format_check_list]
             )
         if len(np.unique(para_list).shape) == 1:
             return self
         else:
             raise ValueError('Audio data format is not unique')
 
-       return self
+        return self
        # wav_std(audio_loader(subject=0, session=1, trial=nr_trial, std=False), sps=44100)
 
     def audio_clean(self, save=False):
@@ -339,8 +347,16 @@ class NIBSAudio(NIBS):
         return self
 
     def audio_to_seg(self):
-        pass
+        from jxu.audio.audiosignal import audio_denoise, wav_std
 
+        assert hasattr(self, answer_file_list)
+        assert self.answer_file_list is not None
+
+        for sg_file in self.answer_file_list:
+            audio_denoise(
+                wav_std(sg_file, sps=44100), process=True, denoise_level=4, new_folder=True)
+
+        return self
     def seg_marker(self):
         # manual detection that the seg is audio(1) or noise(0)
         # return bool
