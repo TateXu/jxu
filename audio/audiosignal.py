@@ -49,14 +49,16 @@ def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
             new_folder_name = '{0}/Filtered_{1}/'.format(
                 '/'.join(filename.split('/')[:-1]), str(denoise_level))
             create_folder(new_folder_name)
-            sci_write(new_folder_name + filename.split('/')[-1])
+            new_file_name = new_folder_name + filename.split('/')[-1]
         else:
-            sci_write(filename[:-4] + '_filtered_' + str(denoise_level) + '.wav', fs, filtered_audio_int)
+            new_file_name = filename[:-4] + '_filtered_' + \
+                str(denoise_level) + '.wav'
 
-    try:
-        return filename[:-4] + '_filtered_' + str(denoise_level) + '.wav'
-    except:
-        raise ValueError('Please turn on the process flag for the first time denoising!')
+        sci_write(new_file_name, fs, filtered_audio_int)
+        try:
+            return new_file_name
+        except (ValueError, TypeError, NameError):
+            print('Please turn on the process flag for the first time denoising!')
 
 def speed_change(sound, speed=1.0):
     # NOT SELF WRITTEN!!!!!
