@@ -59,7 +59,7 @@ def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
         sci_write(new_file_name, fs, filtered_audio_int)
     else:
         if not os.path.exists(new_file_name):
-            raise ValueError('Turn on process flag for first running denoising.')
+            raise FileNotFoundError('Turn on process flag for first running denoising.')
 
     return new_file_name
 

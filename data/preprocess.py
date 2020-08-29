@@ -354,14 +354,42 @@ class NIBSAudio(NIBS):
 
         return self
 
-    def audio_to_seg(self):
+    def audio_to_seg(self, opt_skip=0.15, opt_ET=51.5, opt_noise_level=4):
+
         from jxu.audio.audiosignal import audio_denoise, wav_std
+        from auditok import AudioRegion
 
         assert self.answer_file_list is not None
 
-        for sg_file in self.answer_file_list:
-            audio_denoise(
-                sg_file, process=True, denoise_level=4, new_folder=True)
+        self.denoise_answer_file_list = np.empty((len(self.answer_file_list)))
+        try:
+            for id_sg_file, sg_file in enumerate(self.answer_file_list):
+                self.denoise_answer_file_list[id_sg_file] = audio_denoise(
+                    sg_file, process=False, denoise_level=opt_noise_level,
+                    new_folder=True)
+        except FileNotFoundError:
+            for id_sg_file, sg_file in enumerate(self.answer_file_list):
+                self.denoise_answer_file_list[id_sg_file] = audio_denoise(
+                    sg_file, process=True, denoise_level=opt_noise_level,
+                    new_folder=True)
+        except:
+            raise ValueError('Fail to run audio_to_seg.')
+
+        for id_sg_file in range(10, 210):
+            ar_obj = AudioRegion.load(self.denoise_answer_file_list[id_sg_file],
+                                    skip=opt_skip)
+            audio_segs = list(ar_obj.split(energy_threshold=opt_ET))
+
+            if len(audio_segs) != 0:
+                for id_seg, seg in enumerate(audio_segs):
+                    seg_name = folder_path + 'Segments/QA_trial_' + str(nr_trial) + '_seg_' + str(id_seg) + '.wav'
+                    seg.save(seg_name)
+                    all_cnt.append([nr_trial, len(audio_segs), seg.meta.start + opt_skip, seg.meta.end + opt_skip])
+            else:
+                all_cnt.append([nr_trial, len(audio_segs), None, None])
+        all_cnt = np.asarray(all_cnt)
+        with open(folder_path + 'Segments/segment_list.pkl', 'wb') as f:
+            pickle.dump(all_cnt, f)
 
         return self
     def seg_marker(self):
