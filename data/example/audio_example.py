@@ -17,7 +17,7 @@ None,
 'arbeitet',
 None,
 'unclear: beziehen',
-'unclear: ideitzt', 
+'unclear: ideitzt',
 'nimmst',
 'geflogen',
 'kochst',
@@ -29,7 +29,7 @@ None,
 'tragen',
 'geputzt',
 None,
-'unclear: fällt',  
+'unclear: fällt',
 None,
 None,
 'hat',
@@ -202,7 +202,7 @@ if search_opt_para_flag:
 
         # regions = region.split_and_plot(energy_threshold=60) # or just region.splitp()
         # for segment in aaa:
-        #     au_seg_s = segment.meta.start 
+        #     au_seg_s = segment.meta.start
         #     au_seg_e = segment.meta.end
         #     cnt += 1
 else:
@@ -222,7 +222,7 @@ if slice_into_seg_flag:
                 seg.save(seg_name)
                 all_cnt.append([nr_trial, len(audio_segs), seg.meta.start + opt_skip, seg.meta.end + opt_skip])
         else:
-            all_cnt.append([nr_trial, len(audio_segs), None, None]) 
+            all_cnt.append([nr_trial, len(audio_segs), None, None])
     all_cnt = np.asarray(all_cnt)
     with open(folder_path + 'Segments/segment_list.pkl', 'wb') as f:
         pickle.dump(all_cnt, f)
@@ -259,7 +259,7 @@ if mark_seg_flag:
         mark_list.append([nr_trial, seg_mark])
         print(mark_list[-1])
 
-        
+
                     # if noise_flag.lower() == 'y':
     mark_list = np.asarray(mark_list)
     with open(folder_path + 'Segments/marked_segment_list.pkl', 'wb') as f:
@@ -358,7 +358,7 @@ pdb.set_trace()
 # (array([  2,       15,  16,  19,  21,       26,  28,  29,  33,  40,  45,
 #           94,  95,  97, 100, 101, 109, 117,           125, 135, 145, 149, 151,      158]),)
 # Level 4 - 53 - 0.1:
-# (array([  2,       15,  16,  19,  21,       26,  28,  29,  33,  40,  45,  
+# (array([  2,       15,  16,  19,  21,       26,  28,  29,  33,  40,  45,
 #           94,       97, 100,           117, 118, 121, 125, 135, 145, 149, 151,      158]),)
 
 # Level 4 - 53 - 0.15:
@@ -382,11 +382,11 @@ pdb.set_trace()
 
 
 # Level 3:
-# (array([  2,       15,  16,  19,  21,       26,  28,  29,  33,  40,  45, 
+# (array([  2,       15,  16,  19,  21,       26,  28,  29,  33,  40,  45,
 #           94,  95,      100, 101, 109, 117,           125, 135, 145, 149, 151, 158]),)
 
 
-(array([    2,   6,  15,  16,  19,  21,       26,  28,  29,  33,  40,  45, 
+(array([    2,   6,  15,  16,  19,  21,       26,  28,  29,  33,  40,  45,
             94,      97, 100, 101,       117, 118,      125, 135, 145, 149, 151,      158]),)
 
 
@@ -394,23 +394,23 @@ pdb.set_trace()
 
 # Level 2 - 55 - full:
 
-# (array([           15,  16,  19,  21,       26,  28,  29,  33,  40,  45,  
+# (array([           15,  16,  19,  21,       26,  28,  29,  33,  40,  45,
 #          94,            100,          117,            125, 135, 145,                158]),)
 
 # Level 2 - 57 - full:
-# (array([  1,   2,  15,  16,  19,  21,  26,  28,  29,  33,  40,  45,  
+# (array([  1,   2,  15,  16,  19,  21,  26,  28,  29,  33,  40,  45,
 #            94,  95, 100, 101, 109,
 #        117, 125, 135, 145, 158]),)
 
 
 # # Level 2 - 57 - cut:
 # (array([  1,   2,   6,   8,  15,  16,  19,  21,  26,  28,  29,  30,  33,
-#         40,  45,  
+#         40,  45,
 #            94,  95,  97, 100, 101, 106, 109, 117, 118, 125, 135, 145, 149, 151, 158]),)
 
 
-# Level 1: 
-# (array([ 15,  21,  26,  28,  33,  40,  45,  
+# Level 1:
+# (array([ 15,  21,  26,  28,  33,  40,  45,
 #          94, 100, 125, 135, 145, 158]),)
 
 # (array([ 15,  21,  26,  28,  33,  40,  45,  47,  48,  49,  50,  51,  52,
@@ -428,7 +428,7 @@ pdb.set_trace()
 
 
 
-# car 
+# car
 
 # talking outside
 # door (215)

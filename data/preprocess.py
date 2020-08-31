@@ -289,7 +289,7 @@ class NIBSAudio(NIBS):
                 import itertools
                 self.answer_file_list = list(
                     itertools.chain.from_iterable(self.audio_filename_list))
-                print('Loading audio file names into self.audio_filename_list')
+                print('Loading audio file names into self.answer_filename_list')
         elif audio_type == 'question':
             pass
 
@@ -358,38 +358,67 @@ class NIBSAudio(NIBS):
 
         from jxu.audio.audiosignal import audio_denoise, wav_std
         from auditok import AudioRegion
+        from pydub.playback import play as pd_play
 
         assert self.answer_file_list is not None
 
-        self.denoise_answer_file_list = np.empty((len(self.answer_file_list)))
+        self.denoise_answer_file_list = np.empty((len(self.answer_file_list)),
+                                                 dtype=object)
+        self.ans_marker = np.empty((self.nr_qa_trial), dtype=object)
+        self.seg_marker = np.empty((self.nr_qa_trial, 4), dtype=object)
         try:
             for id_sg_file, sg_file in enumerate(self.answer_file_list):
                 self.denoise_answer_file_list[id_sg_file] = audio_denoise(
-                    sg_file, process=False, denoise_level=opt_noise_level,
+                    filename=sg_file, process=False, denoise_level=opt_noise_level,
                     new_folder=True)
         except FileNotFoundError:
             for id_sg_file, sg_file in enumerate(self.answer_file_list):
                 self.denoise_answer_file_list[id_sg_file] = audio_denoise(
                     sg_file, process=True, denoise_level=opt_noise_level,
                     new_folder=True)
-        except:
+        except Exception as ex:
             raise ValueError('Fail to run audio_to_seg.')
 
+
+        self.seg_folder = self.audio_folder + 'Segments/'
+        create_folder(self.seg_folder)
         for id_sg_file in range(10, 210):
             ar_obj = AudioRegion.load(self.denoise_answer_file_list[id_sg_file],
-                                    skip=opt_skip)
-            audio_segs = list(ar_obj.split(energy_threshold=opt_ET))
+                                      skip=opt_skip)
 
-            if len(audio_segs) != 0:
-                for id_seg, seg in enumerate(audio_segs):
-                    seg_name = folder_path + 'Segments/QA_trial_' + str(nr_trial) + '_seg_' + str(id_seg) + '.wav'
-                    seg.save(seg_name)
-                    all_cnt.append([nr_trial, len(audio_segs), seg.meta.start + opt_skip, seg.meta.end + opt_skip])
-            else:
-                all_cnt.append([nr_trial, len(audio_segs), None, None])
-        all_cnt = np.asarray(all_cnt)
-        with open(folder_path + 'Segments/segment_list.pkl', 'wb') as f:
-            pickle.dump(all_cnt, f)
+            sg_audio = AudioSegment.from_file(
+                self.denoise_answer_file_list[id_sg_file])
+            continue_flag = 'r'
+            while continue_flag == 'r':
+                pd_play(sg_audio)
+                continue_flag = input('Does this audio contain an answer?' +
+                                      '(1-yes/ 0-no/ r-repeat)?')
+                while continue_flag not in ['r', '1', '0']:
+                    continue_flag = input('Invalid input, please only input ' +
+                                          'r, 1 or 0!')
+                if continue_flag.lower() == 'r':
+                    continue
+                elsear_obj.split_and_plot():
+                    self.ans_marker[id_sg_file-10] = int(continue_flag)
+
+            audio_segs = list(ar_obj.split_and_plot(energy_threshold=opt_ET))
+            self.seg_marker[id_sg_file-10][0] = len(audio_segs)
+            self.seg_marker[id_sg_file-10][1] = []  # flag: bool, audio or noise
+            self.seg_marker[id_sg_file-10][2] = []  # onset
+            self.seg_marker[id_sg_file-10][3] = []  # duration
+            for id_seg, seg in enumerate(audio_segs):
+                seg_name = '{0}T_{1}_seg_{2}.wav'.format(
+                    self.seg_folder, str(id_sg_file-10), str(id_seg))
+                seg.save(seg_name)
+                .append([nr_trial, len(audio_segs), seg.meta.start + opt_skip, seg.meta.end + opt_skip])
+
+            import pdb;pdb.set_trace()
+            # if len(audio_segs) != 0:
+                            # else:
+                # all_cnt.append([nr_trial, len(audio_segs), None, None])
+        # all_cnt = np.asarray(all_cnt)
+        # with open(folder_path + 'Segments/segment_list.pkl', 'wb') as f:
+            # pickle.dump(all_cnt, f)
 
         return self
     def seg_marker(self):
