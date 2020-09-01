@@ -1,14 +1,16 @@
-#========================================
+# ========================================
 # Author     : Jiachen Xu
 # Blog       : www.jiachenxu.net
 # Time       : 2020-06-25 13:34:43
 # Name       : preprocess.py
 # Version    : V1.0
 # Description: Class for preprocessing EEG& Audio
-#========================================
+# ========================================
 
+from jxu.basiccmd.mycmd import create_folder
 from jxu.data.loader import vhdr_load
-
+from jxu.data.utils import *
+from jxu.viz.utils import *
 import os
 import numpy as np
 from numpy.fft import fft, fftfreq
@@ -20,13 +22,16 @@ import platform
 from copy import deepcopy
 
 from pydub import AudioSegment
+from pydub.playback import play as pd_play
+from jxu.audio.audiosignal import audio_denoise, wav_std
+from auditok import AudioRegion
+
+
 from scipy.io import wavfile # scipy library to read wav files
 import mne
 
 import warnings
 import pickle
-from jxu.data.utils import *
-from jxu.viz.utils import *
 import argparse
 import pdb
 from .utils import BaseEEG
@@ -359,13 +364,12 @@ class NIBSAudio(NIBS):
         from jxu.audio.audiosignal import audio_denoise, wav_std
         from auditok import AudioRegion
         from pydub.playback import play as pd_play
+        import progressbar
 
         assert self.answer_file_list is not None
 
         self.denoise_answer_file_list = np.empty((len(self.answer_file_list)),
                                                  dtype=object)
-        self.ans_marker = np.empty((self.nr_qa_trial), dtype=object)
-        self.seg_marker = np.empty((self.nr_qa_trial, 4), dtype=object)
         try:
             for id_sg_file, sg_file in enumerate(self.answer_file_list):
                 self.denoise_answer_file_list[id_sg_file] = audio_denoise(
@@ -379,55 +383,116 @@ class NIBSAudio(NIBS):
         except Exception as ex:
             raise ValueError('Fail to run audio_to_seg.')
 
-
+        # Mark the audio file with answer
         self.seg_folder = self.audio_folder + 'Segments/'
         create_folder(self.seg_folder)
-        for id_sg_file in range(10, 210):
-            ar_obj = AudioRegion.load(self.denoise_answer_file_list[id_sg_file],
-                                      skip=opt_skip)
+        create_folder(self.audio_folder + 'Marker/')
 
+        if os.path.exists(self.audio_folder + 'Marker/answer.pkl'):
+            with open(
+                    self.audio_folder + 'Marker/answer.pkl', 'rb') as f_mark:
+                self.ans_marker, self.seg_marker = pickle.load(f_mark)
+            init_ind = np.sum(self.ans_marker != None)
+        else:
+            self.ans_marker = np.empty((self.nr_qa_trial), dtype=object)
+            self.seg_marker = np.empty((self.nr_qa_trial, 6), dtype=object)
+            init_ind = 0
+        bar = progressbar.ProgressBar(max_value=self.nr_qa_trial)
+
+        for id_sg_file in range(10 + init_ind, 210):
             sg_audio = AudioSegment.from_file(
                 self.denoise_answer_file_list[id_sg_file])
             continue_flag = 'r'
             while continue_flag == 'r':
                 pd_play(sg_audio)
                 continue_flag = input('Does this audio contain an answer?' +
-                                      '(1-yes/ 0-no/ r-repeat)?')
+                                      '(1-yes/ 0-no/ r-repeat)?\n')
                 while continue_flag not in ['r', '1', '0']:
                     continue_flag = input('Invalid input, please only input ' +
-                                          'r, 1 or 0!')
+                                          'r, 1 or 0!\n')
                 if continue_flag.lower() == 'r':
                     continue
-                elsear_obj.split_and_plot():
+                else:
                     self.ans_marker[id_sg_file-10] = int(continue_flag)
 
-            audio_segs = list(ar_obj.split_and_plot(energy_threshold=opt_ET))
-            self.seg_marker[id_sg_file-10][0] = len(audio_segs)
-            self.seg_marker[id_sg_file-10][1] = []  # flag: bool, audio or noise
-            self.seg_marker[id_sg_file-10][2] = []  # onset
-            self.seg_marker[id_sg_file-10][3] = []  # duration
-            for id_seg, seg in enumerate(audio_segs):
-                seg_name = '{0}T_{1}_seg_{2}.wav'.format(
-                    self.seg_folder, str(id_sg_file-10), str(id_seg))
-                seg.save(seg_name)
-                .append([nr_trial, len(audio_segs), seg.meta.start + opt_skip, seg.meta.end + opt_skip])
+            # Start to slice into segments and mark them.
+            ar_obj = AudioRegion.load(
+                self.denoise_answer_file_list[id_sg_file], skip=opt_skip)
+            self._raw_seg_marker(ar_obj, ET=opt_ET, skip=opt_skip,
+                                 id_trial=id_sg_file-10)
 
-            import pdb;pdb.set_trace()
-            # if len(audio_segs) != 0:
-                            # else:
-                # all_cnt.append([nr_trial, len(audio_segs), None, None])
-        # all_cnt = np.asarray(all_cnt)
-        # with open(folder_path + 'Segments/segment_list.pkl', 'wb') as f:
-            # pickle.dump(all_cnt, f)
+            with open(
+                    self.audio_folder +
+                    'Marker/answer.pkl', 'wb') as f_ans_mark:
+                pickle.dump([self.ans_marker, self.seg_marker], f_ans_mark)
+            bar.update(id_sg_file - 10)
 
         return self
-    def seg_marker(self):
+
+
+    def _raw_seg_marker(self, ar_obj, ET, skip, id_trial):
+        # AudioRegion.sr/sw/ch
         # manual detection that the seg is audio(1) or noise(0)
         # return bool
 
-        pass
+        audio_segs = list(ar_obj.split_and_plot(energy_threshold=ET))
+        self.seg_marker[id_trial][0] = len(audio_segs)
+        self.seg_marker[id_trial][1] = []  # flag: bool, audio or noise
+        self.seg_marker[id_trial][2] = []  # onset
+        self.seg_marker[id_trial][3] = []  # end = onset + duration
+        self.seg_marker[id_trial][4] = []  # crop_ext_left
+        self.seg_marker[id_trial][5] = []  # crop_ext_right
+        for id_seg, seg in enumerate(audio_segs):
+            seg_name = '{0}T_{1}_seg_{2}.wav'.format(
+                self.seg_folder, str(id_trial), str(id_seg))
+            seg.save(seg_name)
+            as_seg = AudioSegment.from_file(seg_name)
+            continue_flag = 'r'
+            while continue_flag == 'r':
+                pd_play(as_seg)
+                continue_flag = input('Does this audio clip contain an' +
+                                      ' answer? (1-yes/ 0-no/ r-repeat)\n')
+                while continue_flag not in ['r', '1', '0']:
+                    continue_flag = input('Invalid input, please only input ' +
+                                          'r, 1 or 0!\n')
+                if continue_flag.lower() == 'r':
+                    continue
+                else:
+                    self.seg_marker[id_trial, 1].append(
+                        int(continue_flag))
+                    self.seg_marker[id_trial, 2].append(
+                        seg.meta.start + skip)
+                    self.seg_marker[id_trial, 3].append(
+                        seg.meta.end + skip)
 
-    def onset_detector(self):
+                    if int(continue_flag):
+                        crop_ext_left_flag = input('Manaul ext for crop' +
+                                                   ' left? (1-yes/0-no)\n')
+                        if int(crop_ext_left_flag):
+                            crop_l_val = float(
+                                input('Input the value for crop left' +
+                                      ' (default: +0.3)\n'))
+                        else:
+                            crop_l_val = 0.3
+
+                        crop_ext_right_flag = input('Manaul ext for crop' +
+                                                    ' right?(1-yes/0-no)\n')
+                        if int(crop_ext_right_flag):
+                            crop_r_val = float(
+                                input('Input the value for crop right' +
+                                      ' (default: +0.3)\n'))
+                        else:
+                            crop_r_val = 0.3
+
+                        self.seg_marker[id_trial, 4].append(
+                            crop_l_val)
+                        self.seg_marker[id_trial, 5].append(
+                            crop_r_val)
+        plt.close()
+
+        return self
+
+    def valid_seg_extractor(self):
 
         # return onset& duration of valid segments
         pass
