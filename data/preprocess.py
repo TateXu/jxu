@@ -76,7 +76,6 @@ class NIBS():
 
 
 
-
 class NIBSEEG(NIBS):
 
     def __init__(self, subject=1, session=0,
