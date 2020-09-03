@@ -491,7 +491,7 @@ class NIBSAudio(NIBS):
         return self
 
     def valid_seg(self):
-        from jxu.audio.audiosignal import detect_leading_silence
+        from jxu.audio.audiosignal import detect_leading_silence, audio_onedim
 
         # return onset& duration of valid segments
         # for answer segments
@@ -502,7 +502,6 @@ class NIBSAudio(NIBS):
         assert np.any(flag_list == self.ans_marker), "Inconsistent #seg"
 
         create_folder(self.audio_folder + 'Valid_segs/')
-
 
         try:
             with open(self.audio_folder + 'Markers/valid_answer.pkl',
@@ -518,7 +517,6 @@ class NIBSAudio(NIBS):
         for ind_file, (valid_seg_file, seg_file) in enumerate(
                 zip(self.valid_seg_marker, self.seg_marker)):
 
-            import pdb;pdb.set_trace()
             if ind_file < init_ind:
                 continue
 
@@ -552,6 +550,11 @@ class NIBSAudio(NIBS):
                     onset * 1000: (onset + duration) * 1000]
 
                 pd_play(valid_clip)
+                valid_seg_loc = '{0}Valid_segs/QA_trial_{1}.wav'.format(
+                    self.audio_folder, str(ind_file))
+                valid_clip.export(valid_seg_loc, format='wav')
+                audio_onedim(valid_seg_loc, block=False, metric='dBFS')
+
                 continue_flag = input('Does this audio clip completely ' +
                                       'contain an answer? (1-yes/ 0-no/' +
                                       'r-repeat)\n')
@@ -568,9 +571,6 @@ class NIBSAudio(NIBS):
                     onset += shift_l
                     duration += shift_r
                 elif continue_flag.lower() == '1':
-                    valid_seg_loc = '{0}Valid_segs/QA_trial_{1}.wav'.format(
-                        self.audio_folder, str(ind_file))
-                    valid_clip.export(valid_seg_loc, format='wav')
                     self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
                     self.valid_seg_marker[ind_file, 1] = valid_seg_loc
                     self.valid_seg_marker[ind_file, 2] = onset
@@ -579,6 +579,7 @@ class NIBSAudio(NIBS):
                     with open(self.audio_folder + 'Markers/valid_answer.pkl',
                               'wb') as f_valid:
                         pickle.dump(f_valid, self.valid_seg_marker)
+                plt.close()
 
         pass
 

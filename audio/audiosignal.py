@@ -272,7 +272,8 @@ def audio_spec(AudioName):
 
 
 
-def audio_onedim(filename, wav=True, metric='default', pflag=True, sps=44100.0):
+def audio_onedim(filename, wav=True, metric='default', pflag=True,
+                 sps=44100.0, block=True):
 
     if wav:
         newfilename = filename
@@ -295,7 +296,7 @@ def audio_onedim(filename, wav=True, metric='default', pflag=True, sps=44100.0):
         plt.figure(1)
         plt.title("Signal Wave")
         plt.plot(np.arange(len(signal)) / sps, sig)
-        plt.show()
+        plt.show(block=block)
 
     print('Min:' + str(np.sort(np.unique(sig))[1]))
     return np.sort(np.unique(sig))[1]
