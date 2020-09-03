@@ -75,7 +75,6 @@ class NIBS():
         return self
 
 
-
 class NIBSEEG(NIBS):
 
     def __init__(self, subject=1, session=0,
@@ -491,9 +490,96 @@ class NIBSAudio(NIBS):
 
         return self
 
-    def valid_seg_extractor(self):
+    def valid_seg(self):
+        from jxu.audio.audiosignal import detect_leading_silence
 
         # return onset& duration of valid segments
+        # for answer segments
+        assert self.seg_marker is not None, "Run audio_to_seg() first!"
+
+        flag_list = np.asarray(
+            [True if 1 in ind else False for ind in self.seg_marker[:, 1]])
+        assert np.any(flag_list == self.ans_marker), "Inconsistent #seg"
+
+        create_folder(self.audio_folder + 'Valid_segs/')
+
+
+        try:
+            with open(self.audio_folder + 'Markers/valid_answer.pkl',
+                      'rb') as f_valid_in:
+                self.valid_seg_marker = pickle.load(f_valid_in)
+            init_ind = np.sum(self.valid_seg_marker[:, 0] != None)
+        except FileNotFoundError:
+            self.valid_seg_marker = np.empty(
+                (self.nr_qa_trial, 4), dtype='object')
+            init_ind = 0
+
+        extract_func = lambda x, y: [x[i][y[i]] for i in range(len(x))]
+        for ind_file, (valid_seg_file, seg_file) in enumerate(
+                zip(self.valid_seg_marker, self.seg_marker)):
+
+            import pdb;pdb.set_trace()
+            if ind_file < init_ind:
+                continue
+
+            if not flag_list[ind_file]:
+                self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
+                continue
+
+            vl_loc = seg_file[1].index(1)
+            vl_loc_list = [vl_loc, vl_loc, 0, 0]
+
+            start, end, ext_l, ext_r = extract_func(seg_file[2:], vl_loc_list)
+
+            crop_start = start - ext_l if start - ext_l >= 0 else 0.0
+            crop_end = end + ext_r
+
+            audio_file = AudioSegment.from_wav(
+                self.denoise_answer_file_list[ind_file + 10])
+            crop_audio = deepcopy(audio_file)
+            audio_seg = crop_audio[crop_start * 1000: crop_end * 1000]
+            start_trim = detect_leading_silence(
+                audio_seg, silence_threshold=-80.0, chunk_size=1)
+            end_trim = detect_leading_silence(
+                audio_seg.reverse(), silence_threshold=-80.0, chunk_size=1)
+            onset = crop_start + start_trim / 1000.0
+            duration = len(audio_seg[start_trim:-end_trim-1]) / 1000.0
+
+            continue_flag = 'r'
+            while continue_flag == 'r':
+                valid_audio = deepcopy(audio_file)
+                valid_clip = valid_audio[
+                    onset * 1000: (onset + duration) * 1000]
+
+                pd_play(valid_clip)
+                continue_flag = input('Does this audio clip completely ' +
+                                      'contain an answer? (1-yes/ 0-no/' +
+                                      'r-repeat)\n')
+                while continue_flag not in ['r', '1', '0']:
+                    continue_flag = input('Invalid input, please only input ' +
+                                          'r, 1 or 0!\n')
+                if continue_flag.lower() == 'r':
+                    continue
+                elif continue_flag.lower() == '0':
+                    shift_l = float(input('Shift how much towords the left?' +
+                                          ' +/-, l/r (unit:s)'))
+                    shift_r = float(input('Shift how much towords the right?' +
+                                          ' +/-, l/r (unit:s)'))
+                    onset += shift_l
+                    duration += shift_r
+                elif continue_flag.lower() == '1':
+                    valid_seg_loc = '{0}Valid_segs/QA_trial_{1}.wav'.format(
+                        self.audio_folder, str(ind_file))
+                    valid_clip.export(valid_seg_loc, format='wav')
+                    self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
+                    self.valid_seg_marker[ind_file, 1] = valid_seg_loc
+                    self.valid_seg_marker[ind_file, 2] = onset
+                    self.valid_seg_marker[ind_file, 3] = duration
+
+                    with open(self.audio_folder + 'Markers/valid_answer.pkl',
+                              'wb') as f_valid:
+                        pickle.dump(f_valid, self.valid_seg_marker)
+
         pass
 
 
