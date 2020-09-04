@@ -21,8 +21,10 @@ from mne.filter import notch_filter
 import os
 from jxu.basiccmd.mycmd import create_folder
 
-def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
-                  process=False, denoise_level=4, new_folder=True):
+def audio_denoise(filename, type='notch', basefreq=1000, increment=1000,
+                  process=False, denoise_level=4, new_folder=True,
+                  incre=True):
+    assert denoise_level > 0, 'denoise level starts from 1'
 
     if new_folder:
         new_folder_name = '{0}/Filtered_{1}/'.format(
@@ -41,6 +43,7 @@ def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
                       wavfile.read(noise_path + 'noise_desk_44100.wav')[1],
                       wavfile.read(noise_path + 'noise_desk_book_44100.wav')[1],
                       wavfile.read(noise_path + 'noise_mouse_44100.wav')[1],
+                      wavfile.read(noise_path + 'noise_white.wav')[1],
                       wavfile.read(noise_path + 'noise_walking_44100.wav')[1],
                       wavfile.read(noise_path + 'noise_door_1_44100.wav')[1],
                       wavfile.read(noise_path + 'noise_door_2_44100.wav')[1]]
@@ -49,7 +52,12 @@ def audio_denoise(filename, type='notch', basefreq=2000, increment=1000,
                                      freqs=np.arange(
                                          basefreq, (fs - 100) / 2, increment),
                                      method='fir')
-        for incre_level in range(denoise_level):
+        if incre:
+            level_list = range(denoise_level)
+        else:
+            level_list = [denoise_level - 1]
+
+        for incre_level in level_list:
             reduced_noise = nr.reduce_noise(
                 audio_clip=reduced_noise.astype(float),
                 noise_clip=noisy_part[incre_level].astype(float),
@@ -258,22 +266,21 @@ def audio_spec(AudioName):
     #Spectrogram
     from scipy import signal
     N = 512 #Number of point in the fft
-    import pdb
-    pdb.set_trace()
     f, t, Sxx = signal.spectrogram(Audiodata, fs,window = signal.blackman(N),nfft=N)
     plt.figure()
     plt.pcolormesh(t, f,10*np.log10(Sxx)) # dB spectrogram
+    plt.colorbar()
     #plt.pcolormesh(t, f,Sxx) # Lineal spectrogram
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [seg]')
     plt.title('Spectrogram with scipy.signal',size=16);
 
-    plt.show()
+    plt.show(block=True)
 
 
 
 def audio_onedim(filename, wav=True, metric='default', pflag=True,
-                 sps=44100.0, block=True):
+                 sps=44100.0, block=True, num=1):
 
     if wav:
         newfilename = filename
@@ -293,7 +300,7 @@ def audio_onedim(filename, wav=True, metric='default', pflag=True,
         sig = 20*np.log10(abs(signal)/maxValue)
 
     if pflag:
-        plt.figure(1)
+        plt.figure(num=num)
         plt.title("Signal Wave")
         plt.plot(np.arange(len(signal)) / sps, sig)
         plt.show(block=block)

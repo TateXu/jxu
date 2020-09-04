@@ -492,6 +492,7 @@ class NIBSAudio(NIBS):
 
     def valid_seg(self):
         from jxu.audio.audiosignal import detect_leading_silence, audio_onedim
+        import progressbar
 
         # return onset& duration of valid segments
         # for answer segments
@@ -504,7 +505,7 @@ class NIBSAudio(NIBS):
         create_folder(self.audio_folder + 'Valid_segs/')
 
         try:
-            with open(self.audio_folder + 'Markers/valid_answer.pkl',
+            with open(self.audio_folder + 'Marker/valid_answer.pkl',
                       'rb') as f_valid_in:
                 self.valid_seg_marker = pickle.load(f_valid_in)
             init_ind = np.sum(self.valid_seg_marker[:, 0] != None)
@@ -514,8 +515,12 @@ class NIBSAudio(NIBS):
             init_ind = 0
 
         extract_func = lambda x, y: [x[i][y[i]] for i in range(len(x))]
+
+        bar_valid = progressbar.ProgressBar(max_value=self.nr_qa_trial)
         for ind_file, (valid_seg_file, seg_file) in enumerate(
                 zip(self.valid_seg_marker, self.seg_marker)):
+
+            bar_valid.update(ind_file)
 
             if ind_file < init_ind:
                 continue
@@ -537,9 +542,9 @@ class NIBSAudio(NIBS):
             crop_audio = deepcopy(audio_file)
             audio_seg = crop_audio[crop_start * 1000: crop_end * 1000]
             start_trim = detect_leading_silence(
-                audio_seg, silence_threshold=-80.0, chunk_size=1)
+                audio_seg, silence_threshold=-45.0, chunk_size=1)
             end_trim = detect_leading_silence(
-                audio_seg.reverse(), silence_threshold=-80.0, chunk_size=1)
+                audio_seg.reverse(), silence_threshold=-45.0, chunk_size=1)
             onset = crop_start + start_trim / 1000.0
             duration = len(audio_seg[start_trim:-end_trim-1]) / 1000.0
 
@@ -553,7 +558,7 @@ class NIBSAudio(NIBS):
                 valid_seg_loc = '{0}Valid_segs/QA_trial_{1}.wav'.format(
                     self.audio_folder, str(ind_file))
                 valid_clip.export(valid_seg_loc, format='wav')
-                audio_onedim(valid_seg_loc, block=False, metric='dBFS')
+                audio_onedim(valid_seg_loc, block=False, metric='default')
 
                 continue_flag = input('Does this audio clip completely ' +
                                       'contain an answer? (1-yes/ 0-no/' +
@@ -564,22 +569,29 @@ class NIBSAudio(NIBS):
                 if continue_flag.lower() == 'r':
                     continue
                 elif continue_flag.lower() == '0':
+                    pd_play(valid_audio)
+                    audio_onedim(
+                        self.denoise_answer_file_list[ind_file + 10],
+                        valid_seg_loc,
+                        block=False, metric='default', num=2)
                     shift_l = float(input('Shift how much towords the left?' +
                                           ' +/-, l/r (unit:s)'))
                     shift_r = float(input('Shift how much towords the right?' +
                                           ' +/-, l/r (unit:s)'))
-                    onset += shift_l
+                    onset -= shift_l
                     duration += shift_r
+                    continue_flag = 'r'
                 elif continue_flag.lower() == '1':
                     self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
                     self.valid_seg_marker[ind_file, 1] = valid_seg_loc
                     self.valid_seg_marker[ind_file, 2] = onset
                     self.valid_seg_marker[ind_file, 3] = duration
 
-                    with open(self.audio_folder + 'Markers/valid_answer.pkl',
+                    with open(self.audio_folder + 'Marker/valid_answer.pkl',
                               'wb') as f_valid:
-                        pickle.dump(f_valid, self.valid_seg_marker)
-                plt.close()
+                        pickle.dump(self.valid_seg_marker, f_valid)
+
+                plt.close('all')
 
         pass
 
