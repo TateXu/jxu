@@ -33,6 +33,7 @@ import mne
 import warnings
 import pickle
 import argparse
+import pandas as pd
 import pdb
 from .utils import BaseEEG
 
@@ -62,10 +63,14 @@ class NIBS():
     def path_init(self):
         # Initialize the path for EEG and audio recordings
         self.subj_id = list(self.subject_list.keys())[self.subject]
-        self.eeg_folder = '{0}/Session_{1}/'.format(self.subj_id, str(int(self.session)))
+        self.subj_nr = deepcopy(self.subject)
+        self.ses_nr = deepcopy(self.session)
+        self.eeg_folder = '{0}/Session_{1}/'.format(self.subj_id, str(int(self.ses_nr)))
         self.audio_folder = self.root + '{0}/Audio/Session_{1}/Exp_data/All/'.format(
-            self.subj_id, str(int(self.session)).zfill(2))
+            self.subj_id, str(int(self.ses_nr)).zfill(2))
 
+        # meta info folder - folder for saving meta info pickle files
+        self.meta_folder = self.root + 'Audio/meta/'
         DIR = self.root + self.eeg_folder
         self.nr_seg = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))]) // 3
         self.eeg_file_path_list = [
@@ -294,7 +299,38 @@ class NIBSAudio(NIBS):
                     itertools.chain.from_iterable(self.audio_filename_list))
                 print('Loading audio file names into self.answer_filename_list')
         elif audio_type == 'question':
-            pass
+            import pandas as pd
+            self.cali_pkl = '{0}cali_info/S{1}_Session{2}_cali.pkl'.format(
+                self.meta_folder, str(self.subj_nr).zfill(2),
+                str(self.ses_nr).zfill(1))
+            self.qa_pkl = '{0}qa_info/S{1}_Session{2}_unshattered_beep_df.pkl'.format(
+                self.meta_folder, str(self.subj_nr).zfill(2),
+                str(self.ses_nr).zfill(1))
+
+            self.cali_info = pd.read_pickle(self.cali_pkl)
+            self.qa_info = pd.read_pickle(self.qa_pkl)
+
+            if 'file_seg_ori' not in self.qa_info.PATH:
+                self.qa_info[('PATH', 'file_seg_ori')] = self.qa_info[
+                    'PATH']['file_root_ori'].replace(
+                        {'/Audio/Database/Unshattered/audio/':
+                        '/EEG/Exp/Audio/audio_file/'},
+                        regex=True)
+
+
+            # try:
+            #     self.audio_filename_list = func(self.cali_info, self.qa_info)
+            # except:
+            #     self.question_process()
+            #     self.audio_filename_list = func(self.cali_info, self.qa_info)
+            # if preload:
+                # self.answer_file_list = self._preload(pkg=pkg)
+                # print('Loading audio files into self.answer_file_list')
+            # else:
+                # import itertools
+                # self.answer_file_list = list(
+                    # itertools.chain.from_iterable(self.audio_filename_list))
+                # print('Loading audio file names into self.answer_filename_list')
 
         return self
 
@@ -594,6 +630,100 @@ class NIBSAudio(NIBS):
                 plt.close('all')
 
         pass
+
+    def qa_combine(self, update_pkl=True):
+
+        from jxu.basiccmd.mycmd import create_folder
+        from jxu.audio.audiosignal import plain_beep, remove_silence
+        from pydub import AudioSegment
+
+        assert self.valid_seg_marker is not None, 'Run valid_seg() first!'
+
+        self.qa_combine_folder = self.audio_folder + 'Combined/'
+        create_folder(self.qa_combine_folder)
+
+        self.qa_info[('PATH', 'valid_ans_seg')] = self.valid_seg_marker[:, 1]
+        combined_file_list = []
+        for index, entry in self.qa_info.iterrows():
+            print(index)
+            chunk_folder_path = '/'.join(
+                entry.PATH.file_seg_ori.split('/')[:-1]) + '/Chunk/'
+
+            nr_chunk = ~entry.SENTENCE_INFO.last_word_flag + 4
+
+            audio_chunks = []
+            for id_chunk in range(nr_chunk):
+                audio_chunks.append(
+                    AudioSegment.from_wav(
+                        chunk_folder_path +
+                        'chunk{0}.wav'.format(str(id_chunk))))
+
+            if entry.PATH.valid_ans_seg == None:
+                print('No answer for question' + str(index))
+                combined_file_list.append(None)
+                continue
+            else:
+                answer = AudioSegment.from_wav(entry.PATH.valid_ans_seg)
+
+            clean_chunks = [
+                remove_silence(
+                    single_chunk) for single_chunk in audio_chunks]
+            beep_duration = 0.025
+            beep_chunk = plain_beep(dur=beep_duration, freq=0, vol=0.9,
+                                    sps=44100, bit=16, chn=1)
+            try:
+                combined_sounds = clean_chunks[0] + \
+                    beep_chunk + answer + beep_chunk + clean_chunks[2]
+            except:
+                combined_sounds = clean_chunks[0] + beep_chunk + answer
+
+            combined_name = self.qa_combine_folder + 'QA_T_{0}.wav'.format(
+                str(index).zfill(3))
+
+            combined_sounds.export(combined_name, format="wav")
+            combined_file_list.append(combined_name)
+
+        self.qa_info[('PATH', 'file_qa_combined')] = combined_file_list
+        if update_pkl:
+            self.qa_info.to_pickle(self.qa_pkl)
+
+        return self
+
+    def question_to_chunk(self):
+        # !!! Only have to run once !!!
+
+        from jxu.audio.audiosignal import mp3_to_wav, minimal_audio_to_chunk
+
+        all_df_loc = self.meta_folder + \
+            'qa_info/all_unshattered_beep_df_randomized.pkl'
+
+        all_question_df = pd.read_pickle(all_df_loc)
+        all_question_df[('PATH', 'file_seg_ori')] = all_question_df['PATH']['file_root_ori'].replace(
+                {'/home/jxu/File/Data/NIBS/Stage_one/Audio/Database/Unshattered/audio/':
+                    '/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/Audio/audio_file/'},
+                regex=True)
+
+        for index, entry in all_question_df.iterrows():
+            print(index)
+            audio_name = entry.PATH.file_seg_ori[:-4]
+            mp3_to_wav(audio_name, sps=44100, channel=1, bit=16,
+                       std_suffix='_44100_std')
+            chunk_folder_path = '/'.join(audio_name.split('/')[:-1]) + '/Chunk/'
+
+            audio_chunks = minimal_audio_to_chunk(
+                audio_name + '_44100_std.wav',
+                chunk_folder_path=chunk_folder_path,
+                save=True)
+
+            assert len(audio_chunks) in [2, 3], str(index) + \
+                ': #Chunk should be either 2 or 3, this is' + str(
+                    len(audio_chunks))
+
+            assert ~entry.SENTENCE_INFO.last_word_flag == len(audio_chunks) - 4, '' + \
+                'last word flag is in consistant with #chunk'
+
+        return self
+
 
 
     def answer_merge(self):
