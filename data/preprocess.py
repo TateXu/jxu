@@ -314,23 +314,8 @@ class NIBSAudio(NIBS):
                 self.qa_info[('PATH', 'file_seg_ori')] = self.qa_info[
                     'PATH']['file_root_ori'].replace(
                         {'/Audio/Database/Unshattered/audio/':
-                        '/EEG/Exp/Audio/audio_file/'},
+                         '/EEG/Exp/Audio/audio_file/'},
                         regex=True)
-
-
-            # try:
-            #     self.audio_filename_list = func(self.cali_info, self.qa_info)
-            # except:
-            #     self.question_process()
-            #     self.audio_filename_list = func(self.cali_info, self.qa_info)
-            # if preload:
-                # self.answer_file_list = self._preload(pkg=pkg)
-                # print('Loading audio files into self.answer_file_list')
-            # else:
-                # import itertools
-                # self.answer_file_list = list(
-                    # itertools.chain.from_iterable(self.audio_filename_list))
-                # print('Loading audio file names into self.answer_filename_list')
 
         return self
 
@@ -370,7 +355,8 @@ class NIBSAudio(NIBS):
                 raise ValueError('Load the question audio first!')
 
         para_list = np.asarray(
-            [[sg_file.frame_rate, sg_file.frame_width, sg_file.channels] for sg_file in self.format_check_list]
+            [[sg_file.frame_rate, sg_file.frame_width,
+              sg_file.channels] for sg_file in self.format_check_list]
             )
         if len(np.unique(para_list).shape) == 1:
             return self
@@ -378,7 +364,6 @@ class NIBSAudio(NIBS):
             raise ValueError('Audio data format is not unique')
 
         return self
-       # wav_std(audio_loader(subject=0, session=1, trial=nr_trial, std=False), sps=44100)
 
 
     def audio_std(self):
@@ -639,6 +624,19 @@ class NIBSAudio(NIBS):
 
         assert self.valid_seg_marker is not None, 'Run valid_seg() first!'
 
+        import pdb;pdb.set_trace()
+        try:
+            if self.qa_info.PATH.file_qa_combined.shape[0] == self.nr_qa_trial:
+
+                print('QA is already combined. Attribute ' + \
+                      'qa_info.PATH.file_qa_combined will be returned.')
+                rerun = input('Forced to rerun this QA combine function? 1/0')
+                if rerun:
+                    return self
+                print('Force to rerun QA combined')
+        except AttributeError:
+            print('QA is not yet combined. This function will continue')
+
         self.qa_combine_folder = self.audio_folder + 'Combined/'
         create_folder(self.qa_combine_folder)
 
@@ -684,6 +682,14 @@ class NIBSAudio(NIBS):
             combined_file_list.append(combined_name)
 
         self.qa_info[('PATH', 'file_qa_combined')] = combined_file_list
+        self.qa_info[
+            ('ANSWER_INFO', 'ans_combined_loc')] = self.qa_info[
+                ('PATH', 'file_qa_combined')]
+        self.qa_info[
+            ('ANSWER_INFO', 'ans_valid_clip_loc')] = self.qa_info[
+                ('PATH', 'valid_ans_seg')]
+        self.qa_info[
+            ('ANSWER_INFO', 'ans_full_loc')] = self.qa_file
         if update_pkl:
             self.qa_info.to_pickle(self.qa_pkl)
 
@@ -725,17 +731,118 @@ class NIBSAudio(NIBS):
         return self
 
 
+    def google_stt(self, audio_loc):
+        # insert the function sample_recog from the example code
+        # input should be the path to the combined qa audio, indivisual.
+        # output should be text string
 
-    def answer_merge(self):
-
-        # merge valid answer into censored question audio
-        pass
+        return ''
 
     def answer_to_text(self):
 
-        # use google speech to text and remove excessive text
+        # use google speech to text to covert combined audios
+
+        # add attribute ANSWER_INFO.ans_sen_text
+        assert hasattr(self.qa_info.ANSWER_INFO, 'ans_combined_loc'), 'Run ' +\
+            'qa_combine() first!'
+
+        sen_text = []
+        for index, entry in self.qa_info.iterrows():
+            combined_audio_loc = entry.ANSWER_INFO.ans_combined_loc
+            if combined_audio_loc is None:
+                sen_text.append('')
+            else:
+                sen_text.append(self.google_stt(combined_audio_loc))
+
+        self.qa_info[('ANSWER_INFO', 'ans_sen_text')] = sen_text
+        self._save_pkl(self.qa_info, self.qa_pkl)
+
+        return self
+
+
+
+    def text_removal(self):
+
+        # remove excessive text
+        # add attribute ANSWER_INFO.vocab_text
+        assert hasattr(self.qa_info.ANSWER_INFO, 'ans_sen_text'), 'Run ' + \
+            'answer_to_text() first!'
+
+        vocab_text = []
+        for index, entry in self.qa_info.iterrows():
+            stt_text = entry.ANSWER_INFO.ans_sen_text
+            if stt_text == '':
+                vocab_text.append('')
+            else:
+                correct_sen_text = entry.SENTENCE_INFO.sen_content
+                correct_vocab = entry.SENTENCE_INFO.beeped_word
+                ans_vocab = self.removal(
+                    correct_sen_text, correct_vocab, stt_text)
+
+                if len(ans_vocab) != 1:
+                    print('list of vocab answer: ' + ' '.join(ans_vocab))
+                    input_flag = input('Manually input? 1/0')
+                    if input_flag:
+                        vocab_text = input('Input the answer')
+                vocab_text.append(vocab_text)
+        self.qa_info[('ANSWER_INFO', 'ans_vocab_text')] = vocab_text
+        self._save_pkl(self.qa_info, self.qa_pkl)
+
+
+        return self
+
+
+    def removal(self, answer_sen, answer_vocab, answer_stt):
+
+        import re
+
+        answer_sen_list = re.sub("[^\w]", " ", answer_sen).split()
+        answer_stt_list = re.sub("[^\w]", " ", answer_stt).split()
+        start_ind = answer_sen_list.index(answer_vocab)
+        end_ind = - answer_sen_list[::-1].index(answer_vocab) - 1
+
+        return answer_sen[start_ind:end_ind]
+
+
+
+    def text_to_audio():
+
+        # Use google text to speech
+        # Answer text -> Audio, i.e., standard audio. Rate should be 0.9, TTS.
+
+        # add attribute ANSWER_INFO.ans_tts_audio_loc
+
         pass
 
+    def audio_duration(self):
+
+        # add attribute self.qa_info.ANSWER_INFO.ans_duration&
+        # .ans_tts_duration
+        from jxu.audio.audiosignal import detect_leading_silence as dls
+        from pydub import AudioSegment
+
+        assert hasattr(self.qa_info.ANSWER_INFO, 'ans_google_loc'), 'Run ' + \
+            'text_to_audio() first!'
+
+        google_dur_list = []
+        for index, entry in self.qa_info.iterrows():
+            if entry.ANSWER_INFO.ans_google_loc is None:
+                google_dur_list.append(None)
+                continue
+            google_seg = AudioSegment.from_file(
+                entry.ANSWER_INFO.ans_google_loc)
+            start_trim = dls(google_seg, silence_threshold=-80.0, chunk_size=1)
+            end_trim = dls(google_seg.reverse(), silence_threshold=-80.0,
+                           chunk_size=1)
+            google_dur_list.append(
+                len(google_seg[start_trim:-end_trim-1])/1000)
+
+        self.qa_info[
+            ('ANSWER_INFO', 'ans_duration')] = self.valid_seg_marker[:, -1]
+        self.qa_info[('ANSWER_INFO', 'ans_tts_duration')] = google_dur_list
+        self._save_pkl(self.qa_info, self.qa_pkl)
+
+        return self
 
     def answer_score(self):
 
@@ -744,7 +851,20 @@ class NIBSAudio(NIBS):
         pass
 
 
+    def _save_pkl(self, obj, path):
 
+        if isinstance(obj, pd.DataFrame):
+            obj.to_pickle(path)
+        else:
+            with open(path, 'wb') as f_save:
+                pickle.dump(obj, f_save)
 
+        return self
 
+    def _load_pkl(self, path):
+
+        with open(path, 'rb') as f_load:
+            obj = pickle.load(f_load)
+
+        return obj
 
