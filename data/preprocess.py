@@ -631,7 +631,7 @@ class NIBSAudio(NIBS):
                 print('QA is already combined. Attribute ' + \
                       'qa_info.PATH.file_qa_combined will be returned.')
                 rerun = input('Forced to rerun this QA combine function? 1/0')
-                if rerun:
+                if not rerun:
                     return self
                 print('Force to rerun QA combined')
         except AttributeError:
@@ -661,12 +661,12 @@ class NIBSAudio(NIBS):
                 combined_file_list.append(None)
                 continue
             else:
-                answer = AudioSegment.from_wav(entry.PATH.valid_ans_seg)
+                answer = AudioSegment.from_wav(entry.PATH.valid_ans_seg) + 5
 
             clean_chunks = [
                 remove_silence(
                     single_chunk) for single_chunk in audio_chunks]
-            beep_duration = 0.025
+            beep_duration = 0.015
             beep_chunk = plain_beep(dur=beep_duration, freq=0, vol=0.9,
                                     sps=44100, bit=16, chn=1)
             try:
@@ -732,11 +732,51 @@ class NIBSAudio(NIBS):
 
 
     def google_stt(self, audio_loc):
+        import io
         # insert the function sample_recog from the example code
         # input should be the path to the combined qa audio, indivisual.
         # output should be text string
+        """
+        Performs synchronous speech recognition on an audio file
 
-        return ''
+        Args:
+        storage_uri URI for audio file in Cloud Storage, e.g. gs://[BUCKET]/[FILE]
+        """
+
+        client = speech_v1p1beta1.SpeechClient()
+
+        # storage_uri = 'gs://cloud-samples-data/speech/brooklyn_bridge.mp3'
+
+        # The language of the supplied audio
+        language_code = "de-DE"
+        # Sample rate in Hertz of the audio data sent
+        sample_rate_hertz = 44100
+
+        # Encoding of audio data sent. This sample sets this explicitly.
+        # This field is optional for FLAC and WAV audio formats.
+        encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
+        config = {
+            "language_code": language_code,
+            "sample_rate_hertz": sample_rate_hertz,
+            "encoding": encoding,
+        }
+
+        with io.open(audio_loc, "rb") as f:
+            content = f.read()
+        audio = {"content": content}
+        # audio = {"uri": storage_uri}
+
+        response = client.recognize(config, audio)
+
+        stt_list = []
+        stt_prob = []
+        for result in response.results:
+            # First alternative is the most probable result
+            alternative = result.alternatives[0]
+            stt_list.append(alternative.transcript)
+            stt_prob.append(alternative.confidence)
+
+        return stt_list, stt_prob
 
     def answer_to_text(self):
 
