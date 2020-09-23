@@ -532,7 +532,7 @@ class NIBSAudio(NIBS):
             init_ind = np.sum(self.valid_seg_marker[:, 0] != None)
         except FileNotFoundError:
             self.valid_seg_marker = np.empty(
-                (self.nr_qa_trial, 4), dtype='object')
+                (self.nr_qa_trial, 5), dtype='object')
             init_ind = 0
 
         extract_func = lambda x, y: [x[i][y[i]] for i in range(len(x))]
@@ -570,6 +570,7 @@ class NIBSAudio(NIBS):
             duration = len(audio_seg[start_trim:-end_trim-1]) / 1000.0
 
             continue_flag = 'r'
+            vocab_correct_flag = 0
             while continue_flag == 'r':
                 valid_audio = deepcopy(audio_file)
                 valid_clip = valid_audio[
@@ -584,6 +585,13 @@ class NIBSAudio(NIBS):
                 continue_flag = input('Does this audio clip completely ' +
                                       'contain an answer? (1-yes/ 0-no/' +
                                       'r-repeat)\n')
+
+                if not int(vocab_correct_flag):
+                    vocab_text_input = input('Please input the heard word')
+                    vocab_correct_flag = input(
+                        'Input text: ' + vocab_text_input +
+                        '\n Is it correct? (1-yes/0-no)')
+
                 while continue_flag not in ['r', '1', '0']:
                     continue_flag = input('Invalid input, please only input ' +
                                           'r, 1 or 0!\n')
@@ -602,11 +610,12 @@ class NIBSAudio(NIBS):
                     onset -= shift_l
                     duration += shift_r
                     continue_flag = 'r'
-                elif continue_flag.lower() == '1':
+                elif continue_flag.lower() == '1' and int(vocab_correct_flag):
                     self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
                     self.valid_seg_marker[ind_file, 1] = valid_seg_loc
                     self.valid_seg_marker[ind_file, 2] = onset
                     self.valid_seg_marker[ind_file, 3] = duration
+                    self.valid_seg_marker[ind_file, 4] = vocab_text_input
 
                     with open(self.audio_folder + 'Marker/valid_answer.pkl',
                               'wb') as f_valid:
