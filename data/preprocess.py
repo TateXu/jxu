@@ -513,7 +513,10 @@ class NIBSAudio(NIBS):
 
     def valid_seg(self):
         from jxu.audio.audiosignal import detect_leading_silence, audio_onedim
+        from spellchecker import SpellChecker
         import progressbar
+
+        spell = SpellChecker(language='de')
 
         # return onset& duration of valid segments
         # for answer segments
@@ -587,10 +590,19 @@ class NIBSAudio(NIBS):
                                       'r-repeat)\n')
 
                 if not int(vocab_correct_flag):
-                    vocab_text_input = input('Please input the heard word')
-                    vocab_correct_flag = input(
-                        'Input text: ' + vocab_text_input +
-                        '\n Is it correct? (1-yes/0-no)')
+                    vocab_text_input = input('Please input the heard word\n')
+                    crct_vocab = spell.correction(vocab_text_input)
+                    vocab_correct_flag = crct_vocab == vocab_text_input
+                    print('Valid input?  {0} \n Input: {1} \n Correct: {2}\n'.format(
+                        vocab_correct_flag, vocab_text_input, crct_vocab))
+                    if not int(vocab_correct_flag):
+                        acp_flag = input('Accept suggestion? 1-yes or ' +
+                                         'input the new text')
+                        if acp_flag == '1':
+                            vocab_text_input = deepcopy(crct_vocab)
+                        else:
+                            vocab_text_input = deepcopy(acp_flag)
+
 
                 while continue_flag not in ['r', '1', '0']:
                     continue_flag = input('Invalid input, please only input ' +
@@ -609,6 +621,8 @@ class NIBSAudio(NIBS):
                                           ' +/-, l/r (unit:s)'))
                     onset -= shift_l
                     duration += shift_r
+                    continue_flag = 'r'
+                elif continue_flag.lower() == '1' and not int(vocab_correct_flag):
                     continue_flag = 'r'
                 elif continue_flag.lower() == '1' and int(vocab_correct_flag):
                     self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
