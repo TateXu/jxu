@@ -368,11 +368,10 @@ class NIBSAudio(NIBS):
 
     def audio_std(self):
 
-        from jxu.audio.audiosignal import wav_std
-
         assert self.answer_file_list is not None
+        import pdb;pdb.set_trace()
 
-        print('')
+        print('Standardise the audio files')
         for sg_file in self.answer_file_list:
             _ = wav_std(sg_file, sps=44100, bit=16)
 
@@ -422,23 +421,27 @@ class NIBSAudio(NIBS):
             sg_audio = AudioSegment.from_file(
                 self.denoise_answer_file_list[id_sg_file])
             continue_flag = 'r'
-            while continue_flag == 'r':
-                pd_play(sg_audio)
-                continue_flag = input('Does this audio contain an answer?' +
-                                      '(1-yes/ 0-no/ r-repeat)?\n')
-                while continue_flag not in ['r', '1', '0']:
-                    continue_flag = input('Invalid input, please only input ' +
-                                          'r, 1 or 0!\n')
-                if continue_flag.lower() == 'r':
-                    continue
-                else:
-                    self.ans_marker[id_sg_file-10] = int(continue_flag)
-
             # Start to slice into segments and mark them.
             ar_obj = AudioRegion.load(
                 self.denoise_answer_file_list[id_sg_file], skip=opt_skip)
             self._raw_seg_marker(ar_obj, ET=opt_ET, skip=opt_skip,
                                  id_trial=id_sg_file-10)
+            empty_ans_flag = self.seg_marker[id_sg_file-10][0] == 0
+            all_noise_seg_flag = not np.any(np.asarray(self.seg_marker[id_sg_file-10][1]))
+            if any([empty_ans_flag, all_noise_seg_flag]):
+                while continue_flag == 'r':
+                    pd_play(sg_audio)
+                    continue_flag = input('Does this audio contain an answer?' +
+                                        '(1-yes/ 0-no/ r-repeat)?\n')
+                    while continue_flag not in ['r', '1', '0']:
+                        continue_flag = input('Invalid input, please only input ' +
+                                            'r, 1 or 0!\n')
+                    if continue_flag.lower() == 'r':
+                        continue
+                    else:
+                        self.ans_marker[id_sg_file-10] = int(continue_flag)
+            else:
+                self.ans_marker[id_sg_file-10] = int(1)
 
             with open(
                     self.audio_folder +
@@ -485,23 +488,25 @@ class NIBSAudio(NIBS):
                         seg.meta.end + skip)
 
                     if int(continue_flag):
-                        crop_ext_left_flag = input('Manaul ext for crop' +
-                                                   ' left? (1-yes/0-no)\n')
-                        if int(crop_ext_left_flag):
-                            crop_l_val = float(
-                                input('Input the value for crop left' +
-                                      ' (default: +0.3)\n'))
-                        else:
-                            crop_l_val = 0.3
+                        crop_l_val = 0.3
+                        crop_r_val = 0.3
+                        # crop_ext_left_flag = input('Manaul ext for crop' +
+                                                   # ' left? (1-yes/0-no)\n')
+                        # if int(crop_ext_left_flag):
+                            # crop_l_val = float(
+                                # input('Input the value for crop left' +
+                                      # ' (default: +0.3)\n'))
+                        # else:
+                            # crop_l_val = 0.3
 
-                        crop_ext_right_flag = input('Manaul ext for crop' +
-                                                    ' right?(1-yes/0-no)\n')
-                        if int(crop_ext_right_flag):
-                            crop_r_val = float(
-                                input('Input the value for crop right' +
-                                      ' (default: +0.3)\n'))
-                        else:
-                            crop_r_val = 0.3
+                        # crop_ext_right_flag = input('Manaul ext for crop' +
+                                                    # ' right?(1-yes/0-no)\n')
+                        # if int(crop_ext_right_flag):
+                            # crop_r_val = float(
+                                # input('Input the value for crop right' +
+                                      # ' (default: +0.3)\n'))
+                        # else:
+                            # crop_r_val = 0.3
 
                         self.seg_marker[id_trial, 4].append(
                             crop_l_val)
@@ -587,30 +592,42 @@ class NIBSAudio(NIBS):
 
                 continue_flag = input('Does this audio clip completely ' +
                                       'contain an answer? (1-yes/ 0-no/' +
-                                      'r-repeat)\n')
+                                      'r-repeat/ w-play whole audio'+
+                                      '/q-play question audio)\n')
 
-                if not int(vocab_correct_flag):
+                if not int(vocab_correct_flag) and continue_flag == '1':
                     vocab_text_input = input('Please input the heard word\n')
                     crct_vocab = spell.correction(vocab_text_input)
                     vocab_correct_flag = crct_vocab == vocab_text_input
                     print('Valid input?  {0} \n Input: {1} \n Correct: {2}\n'.format(
                         vocab_correct_flag, vocab_text_input, crct_vocab))
                     if not int(vocab_correct_flag):
-                        acp_flag = input('Accept suggestion? 1-yes or ' +
-                                         'input the new text')
+                        acp_flag = input('Accept suggestion? 1-yes' +
+                                         'input the new text \n')
                         if acp_flag == '1':
                             vocab_text_input = deepcopy(crct_vocab)
                         else:
                             vocab_text_input = deepcopy(acp_flag)
+                        vocab_correct_flag = True
 
-
-                while continue_flag not in ['r', '1', '0']:
+                while continue_flag not in ['r', '1', '0', 'w', 'q']:
                     continue_flag = input('Invalid input, please only input ' +
                                           'r, 1 or 0!\n')
                 if continue_flag.lower() == 'r':
                     continue
-                elif continue_flag.lower() == '0':
+                elif continue_flag.lower() == 'q':
+                    q_audio = AudioSegment.from_wav(
+                        self.qa_info.PATH.file_root_syn[ind_file])
+                    pd_play(q_audio)
+                    continue_flag = 'r'
+                elif continue_flag.lower() == 'w':
                     pd_play(valid_audio)
+                    audio_onedim(
+                        self.denoise_answer_file_list[ind_file + 10],
+                        valid_seg_loc,
+                        block=False, metric='default', num=2)
+                    continue_flag = 'r'
+                elif continue_flag.lower() == '0':
                     audio_onedim(
                         self.denoise_answer_file_list[ind_file + 10],
                         valid_seg_loc,
@@ -620,7 +637,9 @@ class NIBSAudio(NIBS):
                     shift_r = float(input('Shift how much towords the right?' +
                                           ' +/-, l/r (unit:s)'))
                     onset -= shift_l
-                    duration += shift_r
+                    if onset < 0:
+                        onset = 0.001
+                    duration += shift_l + shift_r
                     continue_flag = 'r'
                 elif continue_flag.lower() == '1' and not int(vocab_correct_flag):
                     continue_flag = 'r'
