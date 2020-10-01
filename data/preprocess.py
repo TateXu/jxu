@@ -558,105 +558,132 @@ class NIBSAudio(NIBS):
                 self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
                 continue
 
-            vl_loc = seg_file[1].index(1)
-            vl_loc_list = [vl_loc, vl_loc, 0, 0]
+            # All seg location in seg_file
+            if len(seg_file[1]) == 1:
+                single_vl_seg_flag = False
+            else:
+                single_vl_seg_flag = True
 
-            start, end, ext_l, ext_r = extract_func(seg_file[2:], vl_loc_list)
+            all_vl_loc = np.where(np.asarray(seg_file[1]) == 1)[0]
 
-            crop_start = start - ext_l if start - ext_l >= 0 else 0.0
-            crop_end = end + ext_r
+            for vl_loc in all_vl_loc:
+                vl_loc_list = [vl_loc, vl_loc, 0, 0]
 
-            audio_file = AudioSegment.from_wav(
-                self.denoise_answer_file_list[ind_file + 10])
-            crop_audio = deepcopy(audio_file)
-            audio_seg = crop_audio[crop_start * 1000: crop_end * 1000]
-            start_trim = detect_leading_silence(
-                audio_seg, silence_threshold=-45.0, chunk_size=1)
-            end_trim = detect_leading_silence(
-                audio_seg.reverse(), silence_threshold=-45.0, chunk_size=1)
-            onset = crop_start + start_trim / 1000.0
-            duration = len(audio_seg[start_trim:-end_trim-1]) / 1000.0
+                start, end, ext_l, ext_r = extract_func(seg_file[2:], vl_loc_list)
 
-            continue_flag = 'r'
-            vocab_correct_flag = 0
-            while continue_flag == 'r':
-                valid_audio = deepcopy(audio_file)
-                valid_clip = valid_audio[
-                    onset * 1000: (onset + duration) * 1000]
+                crop_start = start - ext_l if start - ext_l >= 0 else 0.0
+                crop_end = end + ext_r
 
-                pd_play(valid_clip)
-                valid_seg_loc = '{0}Valid_segs/QA_trial_{1}.wav'.format(
-                    self.audio_folder, str(ind_file))
-                valid_clip.export(valid_seg_loc, format='wav')
-                audio_onedim(valid_seg_loc, block=False, metric='default')
+                audio_file = AudioSegment.from_wav(
+                    self.denoise_answer_file_list[ind_file + 10])
+                crop_audio = deepcopy(audio_file)
+                audio_seg = crop_audio[crop_start * 1000: crop_end * 1000]
+                start_trim = detect_leading_silence(
+                    audio_seg, silence_threshold=-45.0, chunk_size=1)
+                end_trim = detect_leading_silence(
+                    audio_seg.reverse(), silence_threshold=-45.0, chunk_size=1)
+                onset = crop_start + start_trim / 1000.0
+                duration = len(audio_seg[start_trim:-end_trim-1]) / 1000.0
 
-                continue_flag = input('Does this audio clip completely ' +
-                                      'contain an answer? (1-yes/ 0-no/' +
-                                      'r-repeat/ w-play whole audio'+
-                                      '/q-play question audio)\n')
+                continue_flag = 'r'
+                vocab_correct_flag = 0
+                while continue_flag == 'r':
+                    valid_audio = deepcopy(audio_file)
+                    valid_clip = valid_audio[
+                        onset * 1000: (onset + duration) * 1000]
 
-                if not int(vocab_correct_flag) and continue_flag == '1':
-                    vocab_text_input = input('Please input the heard word\n')
-                    crct_vocab = spell.correction(vocab_text_input)
-                    vocab_correct_flag = crct_vocab == vocab_text_input
-                    print('Valid input?  {0} \n Input: {1} \n Correct: {2}\n'.format(
-                        vocab_correct_flag, vocab_text_input, crct_vocab))
-                    if not int(vocab_correct_flag):
-                        acp_flag = input('Accept suggestion? 1-yes' +
-                                         'input the new text \n')
-                        if acp_flag == '1':
-                            vocab_text_input = deepcopy(crct_vocab)
-                        else:
-                            vocab_text_input = deepcopy(acp_flag)
-                        vocab_correct_flag = True
+                    pd_play(valid_clip)
+                    valid_seg_loc = '{0}Valid_segs/QA_trial_{1}.wav'.format(
+                        self.audio_folder, str(ind_file))
+                    valid_clip.export(valid_seg_loc, format='wav')
+                    audio_onedim(valid_seg_loc, block=False, metric='default')
 
-                while continue_flag not in ['r', '1', '0', 'w', 'q']:
-                    continue_flag = input('Invalid input, please only input ' +
-                                          'r, 1 or 0!\n')
-                if continue_flag.lower() == 'r':
-                    continue
-                elif continue_flag.lower() == 'q':
-                    q_audio = AudioSegment.from_wav(
-                        self.qa_info.PATH.file_root_syn[ind_file])
-                    pd_play(q_audio)
-                    continue_flag = 'r'
-                elif continue_flag.lower() == 'w':
-                    pd_play(valid_audio)
-                    audio_onedim(
-                        self.denoise_answer_file_list[ind_file + 10],
-                        valid_seg_loc,
-                        block=False, metric='default', num=2)
-                    continue_flag = 'r'
-                elif continue_flag.lower() == '0':
-                    audio_onedim(
-                        self.denoise_answer_file_list[ind_file + 10],
-                        valid_seg_loc,
-                        block=False, metric='default', num=2)
-                    shift_l = float(input('Shift how much towords the left?' +
-                                          ' +/-, l/r (unit:s)'))
-                    shift_r = float(input('Shift how much towords the right?' +
-                                          ' +/-, l/r (unit:s)'))
-                    onset -= shift_l
-                    if onset < 0:
-                        onset = 0.001
-                    duration += shift_l + shift_r
-                    continue_flag = 'r'
-                elif continue_flag.lower() == '1' and not int(vocab_correct_flag):
-                    continue_flag = 'r'
-                elif continue_flag.lower() == '1' and int(vocab_correct_flag):
-                    self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
-                    self.valid_seg_marker[ind_file, 1] = valid_seg_loc
-                    self.valid_seg_marker[ind_file, 2] = onset
-                    self.valid_seg_marker[ind_file, 3] = duration
-                    self.valid_seg_marker[ind_file, 4] = vocab_text_input
+                    continue_flag = input('Does this audio clip completely ' +
+                                          'contain an answer? (1-yes/ 0-no/' +
+                                          'r-repeat/ w-play whole audio' +
+                                          '/q-play question audio)\n')
 
-                    with open(self.audio_folder + 'Marker/valid_answer.pkl',
-                              'wb') as f_valid:
-                        pickle.dump(self.valid_seg_marker, f_valid)
+                    if not int(vocab_correct_flag) and continue_flag == '1':
+                        vocab_text_input = input(
+                            'Please input the heard word\n')
+                        crct_vocab = spell.correction(vocab_text_input)
+                        vocab_correct_flag = crct_vocab == vocab_text_input
+                        print('Valid input?  {0} \n Input: {1} \n Correct: {2}\n'.format(
+                              vocab_correct_flag, vocab_text_input, crct_vocab))
+                        if not int(vocab_correct_flag):
+                            acp_flag = input('Accept suggestion? 1-yes' +
+                                             'input the new text \n')
+                            if acp_flag == '1':
+                                vocab_text_input = deepcopy(crct_vocab)
+                            else:
+                                vocab_text_input = deepcopy(acp_flag)
+                            vocab_correct_flag = True
 
-                plt.close('all')
+                    while continue_flag not in ['r', '1', '0', 'w', 'q']:
+                        continue_flag = input('Invalid input, please ' +
+                                              'only input r, 1 or 0!\n')
+                    if continue_flag.lower() == 'r':
+                        continue
+                    elif continue_flag.lower() == 'q':
+                        q_audio = AudioSegment.from_wav(
+                            self.qa_info.PATH.file_root_syn[ind_file])
+                        pd_play(q_audio)
+                        continue_flag = 'r'
+                    elif continue_flag.lower() == 'w':
+                        pd_play(valid_audio)
+                        audio_onedim(
+                            self.denoise_answer_file_list[ind_file + 10],
+                            valid_seg_loc,
+                            block=False, metric='default', num=2)
+                        continue_flag = 'r'
+                    elif continue_flag.lower() == '0':
+                        audio_onedim(
+                            self.denoise_answer_file_list[ind_file + 10],
+                            valid_seg_loc,
+                            block=False, metric='default', num=2)
+                        shift_l = float(
+                            input('Shift how much towords the left?' +
+                                  ' +/-, l/r (unit:s)'))
+                        shift_r = float(
+                            input('Shift how much towords the right?' +
+                                  ' +/-, l/r (unit:s)'))
+                        onset -= shift_l
+                        if onset < 0:
+                            onset = 0.001
+                        duration += shift_l + shift_r
+                        continue_flag = 'r'
+                    elif continue_flag.lower() == '1' and not int(vocab_correct_flag):
+                        continue_flag = 'r'
+                    elif continue_flag.lower() == '1' and int(vocab_correct_flag):
+                        self.save_metrics(
+                            ind_file, single_vl_seg_flag,
+                            [flag_list[ind_file], valid_seg_loc, onset,
+                             duration, vocab_text_input])
 
-        pass
+                    plt.close('all')
+
+        return self
+
+    def save_metrics(self, ind_file, single_seg_flag, metrics_list):
+
+        assert len(metrics_list) == 5, '#metrics is predefined as 5!'
+        for id_sg_metric, single_metric in enumerate(metrics_list):
+            if single_seg_flag:
+                self.valid_seg_marker[ind_file, id_sg_metric] = single_metric
+            else:
+                if self.valid_seg_marker[ind_file, id_sg_metric] == None:
+                    # initialize as a list to append multiple seg metric
+                    self.valid_seg_marker[ind_file, id_sg_metric] = []
+
+                self.valid_seg_marker[ind_file, id_sg_metric].append(
+                    single_metric)
+
+        with open(self.audio_folder +
+                  'Marker/valid_answer.pkl', 'wb') as f_valid:
+            pickle.dump(self.valid_seg_marker, f_valid)
+
+        return self
+
 
     def qa_combine(self, update_pkl=True):
 
