@@ -14,7 +14,8 @@ def create_folder(folder_path):
 
 
     if os.path.exists(folder_path):
-        return print("Traget folder is already created! Path: \n" + folder_path)
+        # print("Traget folder is already created! Path: \n" + folder_path)
+        return 0
     else:
         try:
             os.mkdir(folder_path)

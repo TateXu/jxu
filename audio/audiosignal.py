@@ -300,9 +300,13 @@ def audio_onedim(filename, wav=True, metric='default', pflag=True,
         sig = 20*np.log10(abs(signal)/maxValue)
 
     if pflag:
-        plt.figure(num=num)
-        plt.title("Signal Wave")
-        plt.plot(np.arange(len(signal)) / sps, sig)
+        from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
+
+        fig, ax = plt.subplots(num=num)
+        ax.set_title("Signal Wave")
+        ax.plot(np.arange(len(signal)) / sps, sig)
+        ax.xaxis.set_major_locator(MultipleLocator(0.05))
+        ax.grid(which='major', color='#CCCCCC')
         plt.show(block=block)
 
     print('Min:' + str(np.sort(np.unique(sig))[1]))

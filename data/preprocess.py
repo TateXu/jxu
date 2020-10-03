@@ -366,25 +366,13 @@ class NIBSAudio(NIBS):
         return self
 
 
-    def audio_std(self):
+    def audio_std(self, opt_noise_level=5):
 
         assert self.answer_file_list is not None
-        import pdb;pdb.set_trace()
 
         print('Standardise the audio files')
         for sg_file in self.answer_file_list:
             _ = wav_std(sg_file, sps=44100, bit=16)
-
-        return self
-
-    def audio_to_seg(self, opt_skip=0.15, opt_ET=51.5, opt_noise_level=4):
-
-        from jxu.audio.audiosignal import audio_denoise, wav_std
-        from auditok import AudioRegion
-        from pydub.playback import play as pd_play
-        import progressbar
-
-        assert self.answer_file_list is not None
 
         self.denoise_answer_file_list = np.empty((len(self.answer_file_list)),
                                                  dtype=object)
@@ -401,6 +389,16 @@ class NIBSAudio(NIBS):
         except Exception as ex:
             raise ValueError('Fail to run audio_to_seg.')
 
+        return self
+
+    def audio_to_seg(self, opt_skip=0.15, opt_ET=51.5, opt_noise_level=5):
+
+        from jxu.audio.audiosignal import audio_denoise, wav_std
+        from auditok import AudioRegion
+        from pydub.playback import play as pd_play
+        import progressbar
+
+        assert self.answer_file_list is not None
         # Mark the audio file with answer
         self.seg_folder = self.audio_folder + 'Segments/'
         create_folder(self.seg_folder)
@@ -505,7 +503,7 @@ class NIBSAudio(NIBS):
                             # crop_r_val = float(
                                 # input('Input the value for crop right' +
                                       # ' (default: +0.3)\n'))
-                        # else:
+                        # else
                             # crop_r_val = 0.3
 
                         self.seg_marker[id_trial, 4].append(
@@ -560,9 +558,9 @@ class NIBSAudio(NIBS):
 
             # All seg location in seg_file
             if len(seg_file[1]) == 1:
-                single_vl_seg_flag = False
-            else:
                 single_vl_seg_flag = True
+            else:
+                single_vl_seg_flag = False
 
             all_vl_loc = np.where(np.asarray(seg_file[1]) == 1)[0]
 
@@ -601,7 +599,7 @@ class NIBSAudio(NIBS):
                     continue_flag = input('Does this audio clip completely ' +
                                           'contain an answer? (1-yes/ 0-no/' +
                                           'r-repeat/ w-play whole audio' +
-                                          '/q-play question audio)\n')
+                                          '/q-play question audio/d-delete)\n')
 
                     if not int(vocab_correct_flag) and continue_flag == '1':
                         vocab_text_input = input(
@@ -619,11 +617,28 @@ class NIBSAudio(NIBS):
                                 vocab_text_input = deepcopy(acp_flag)
                             vocab_correct_flag = True
 
-                    while continue_flag not in ['r', '1', '0', 'w', 'q']:
+                    while continue_flag not in ['r', '1', '0', 'w', 'q', 'd']:
                         continue_flag = input('Invalid input, please ' +
                                               'only input r, 1 or 0!\n')
                     if continue_flag.lower() == 'r':
                         continue
+                    elif continue_flag.lower() == 'd':
+                        self.seg_marker[ind_file]
+                        # Turning flag from True to False
+                        self.seg_marker[ind_file][1][vl_loc] = 0
+
+                        # Pop the element of ext_l and ext_r, ps. all with 0.3,
+                        # hence the order does not matter
+                        self.seg_marker[ind_file][4].pop()
+                        self.seg_marker[ind_file][5].pop()
+
+                        print('Delete a pre-marked seg, update the answer.pkl')
+                        with open(self.audio_folder + 'Marker/answer.pkl',
+                                  'wb') as f_ans_mark:
+                            pickle.dump([self.ans_marker, self.seg_marker],
+                                        f_ans_mark)
+                        print('Restart the program to refresh the flag list')
+                        exit()
                     elif continue_flag.lower() == 'q':
                         q_audio = AudioSegment.from_wav(
                             self.qa_info.PATH.file_root_syn[ind_file])
