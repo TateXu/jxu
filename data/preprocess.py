@@ -529,7 +529,30 @@ class NIBSAudio(NIBS):
 
         flag_list = np.asarray(
             [True if 1 in ind else False for ind in self.seg_marker[:, 1]])
-        assert np.any(flag_list == self.ans_marker), "Inconsistent #seg"
+        if np.any(flag_list == self.ans_marker):
+            print("Inconsistent #seg; Start to check one by one!")
+
+            captured_ind = np.where((flag_list == self.ans_marker) == False)[0]
+            for ind in captured_ind:
+
+                audio_file = AudioSegment.from_wav(
+                    self.denoise_answer_file_list[ind + 10])
+
+                pd_play(audio_file)
+                contain_clip_flag = input('Is there answer inside? 1-yes/0-no')
+                if int(contain_clip_flag):
+                    self.seg_marker[ind] = [1, [1], [0.001],
+                                            [len(audio_file)/1000.0-0.001],
+                                            [0.0], [0.0]]
+                    self.ans_marker[ind] = True
+                else:
+                    self.seg_marker[ind] = [0, [], [], [], [], []]
+                    self.ans_marker[ind] = False
+                    self.answer_score
+            with open(
+                    self.audio_folder +
+                    'Marker/answer.pkl', 'wb') as f_ans_mark:
+                pickle.dump([self.ans_marker, self.seg_marker], f_ans_mark)
 
         create_folder(self.audio_folder + 'Valid_segs/')
 
@@ -625,7 +648,6 @@ class NIBSAudio(NIBS):
                     if continue_flag.lower() == 'r':
                         continue
                     elif continue_flag.lower() == 'd':
-                        self.seg_marker[ind_file]
                         # Turning flag from True to False
                         self.seg_marker[ind_file][1][vl_loc] = 0
 
@@ -694,6 +716,14 @@ class NIBSAudio(NIBS):
 
                 self.valid_seg_marker[ind_file, id_sg_metric].append(
                     single_metric)
+
+        with open(self.audio_folder +
+                  'Marker/valid_answer.pkl', 'wb') as f_valid:
+            pickle.dump(self.valid_seg_marker, f_valid)
+
+        return self
+
+    def save_vl_marker_pkl(self):
 
         with open(self.audio_folder +
                   'Marker/valid_answer.pkl', 'wb') as f_valid:
