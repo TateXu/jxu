@@ -533,6 +533,7 @@ class NIBSAudio(NIBS):
             print("Inconsistent #seg; Start to check one by one!")
 
             captured_ind = np.where((flag_list == self.ans_marker) == False)[0]
+            print(captured_ind)
             for ind in captured_ind:
 
                 audio_file = AudioSegment.from_wav(
@@ -580,6 +581,8 @@ class NIBSAudio(NIBS):
             if not flag_list[ind_file]:
                 self.valid_seg_marker[ind_file, 0] = flag_list[ind_file]
                 continue
+            # import pdb;pdb.set_trace()
+
 
             # All seg location in seg_file
             if len(seg_file[1]) == 1:
