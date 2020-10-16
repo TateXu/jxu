@@ -12,13 +12,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from scipy.stats import f_oneway
-ses_audio = NIBSAudio(subject=10, session=1)
+
 
 
 # =============================================================================
 # STEP 1: Load stadardised audio files: 44100sps, 16bit, mono channel
 # =============================================================================
 # For standardising audio file, use audio_std_batch.py
+
+ses_audio = NIBSAudio(subject=10, session=1)
 
 # =============================================================================
 # STEP 2: Process raw audio files into valid audio segments
