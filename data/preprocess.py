@@ -7,6 +7,7 @@
 # Description: Class for preprocessing EEG& Audio
 # ========================================
 
+from google.cloud import texttospeech
 from jxu.basiccmd.mycmd import create_folder
 from jxu.data.loader import vhdr_load
 from jxu.data.utils import *
@@ -965,6 +966,63 @@ class NIBSAudio(NIBS):
         end_ind = - answer_sen_list[::-1].index(answer_vocab) - 1
 
         return answer_sen[start_ind:end_ind]
+
+
+    def google_text_to_speech(self, ssml_string, audio_location, speed=0.9,
+                              pitch=0.0, lang='de-DE'):
+        """Synthesizes speech from the input string of text or ssml.
+
+        Note: ssml must be well-formed according to:
+            https://www.w3.org/TR/speech-synthesis/
+        """
+
+        # Instantiates a client
+        client = texttospeech.TextToSpeechClient()
+
+        # Set the text input to be synthesized
+        synthesis_input = texttospeech.SynthesisInput(ssml=ssml_string)
+
+        # Build the voice request, select the language code ("en-US") and ssml
+        # voice gender ("neutral")
+        # de-DE, en-US, cmn-CN (cmn-CN-Standard-C) , (de Standard-B, Wavenet-D)
+        voice = texttospeech.VoiceSelectionParams(
+            language_code=lang,
+            ssml_gender=texttospeech.SsmlVoiceGender.MALE)
+
+        # audio_format: LINEAR 16, OGG_OPUS
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            speaking_rate=speed,   # 0.25 - 4.00
+            pitch=pitch)   # -20.00 - 20.00
+
+        """ Other paramaters for AudioConfig
+            volumn_gain_db=,
+            sample_rate_hertz=,
+            effects_profile_id=,
+        """
+
+        response = client.synthesize_speech(
+            input=synthesis_input, voice=voice, audio_config=audio_config)
+        # The response's audio_content is binary.
+        with open(audio_location, 'wb') as audio_out:
+            # Write the response to the output file.
+            audio_out.write(response.audio_content)
+            print('Audio content written to file ' + audio_location)
+
+        return self
+
+    def plain_tts(self, text, filename, audio_rate=0.9, pitch=0.0, lang='en-US',
+                  file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Others/'):
+
+        ssml_root = '<speak>', '</speak>'
+        ssml_string = ssml_root[0] + text + ssml_root[1]
+        try:
+            self.google_text_to_speech(ssml_string, file_root+filename,
+                                       speed=audio_rate, pitch=pitch, lang=lang)
+        except:
+            print('Run google_credential_act')
+
+        return self
 
 
     def text_to_audio():
