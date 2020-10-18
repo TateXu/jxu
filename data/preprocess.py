@@ -1024,12 +1024,7 @@ class NIBSAudio(NIBS):
 
         return self
 
-    def text_to_audio(self):
-
-        # Use google text to speech
-        # Answer text -> Audio, i.e., standard audio. Rate should be 0.9, TTS.
-
-        # add attribute ANSWER_INFO.ans_tts_audio_loc (deprecated)
+    def metric_extractor(self):
 
         assert hasattr(self, 'valid_seg_marker'), 'Run valid_seg() first!'
 
@@ -1057,10 +1052,12 @@ class NIBSAudio(NIBS):
 
             multiple_ans_flag = isinstance(noise_flag, list)
             if not multiple_ans_flag:
+                n_answer = 1
                 if not noise_flag:  # Only have one noise answer
                     self.metric[id_vl_mk] = [False, None, None]
                     continue
             else:
+                n_answer = len(noise_flag)
                 if not np.any(noise_flag):  # Have multiple noise answers
                     self.metric[id_vl_mk] = [False, None, None]
                     continue
@@ -1068,30 +1065,31 @@ class NIBSAudio(NIBS):
                     self.metric[id_vl_mk][1] = []
                     self.metric[id_vl_mk][2] = []
 
-            for id_ans in range(len(noise_flag)):
+            for id_ans in range(n_answer):
                 if not multiple_ans_flag:
                     text = [text]
+                    onset = [onset]
+                    duration = [duration]
                 ans_name = 'tts_ans_Q{0}_{1}.mp3'.format(
                     str(id_vl_mk), str(id_ans))
-                self.plain_tts(text=text[id_ans], folder=tts_folder,
-                               filename=ans_name)
+
+                if not os.path.exists(tts_folder+ans_name):
+                    self.plain_tts(text=text[id_ans], folder=tts_folder,
+                                   filename=ans_name)
                 tts_duration = self._audio_duration(tts_folder+ans_name)
 
                 fluency = duration[id_ans] / tts_duration
                 if not multiple_ans_flag:
-                    self.metric[id_vl_mk] = [True, onset, fluency]
+                    self.metric[id_vl_mk] = [True, onset[id_ans], fluency]
 
                 else:
                     self.metric[id_vl_mk][0] = True
                     self.metric[id_vl_mk][1].append(onset[id_ans])
                     self.metric[id_vl_mk][2].append(fluency)
 
-        self._save_pkl(self.metric, self.audio_folder+'Marker/')
+        self._save_pkl(self.metric, self.audio_folder+'Marker/metric.pkl')
 
         return self
-
-
-        pass
 
     def _audio_duration(self, file_path):
 
@@ -1099,13 +1097,10 @@ class NIBSAudio(NIBS):
         from jxu.audio.audiosignal import detect_leading_silence as dls
         from pydub import AudioSegment
 
-        assert hasattr(self.qa_info.ANSWER_INFO, 'ans_google_loc'), 'Run ' + \
-            'text_to_audio() first!'
-
         google_seg = AudioSegment.from_file(file_path)
         start_trim = dls(google_seg, silence_threshold=-80.0, chunk_size=1)
         end_trim = dls(google_seg.reverse(), silence_threshold=-80.0,
-                        chunk_size=1)
+                       chunk_size=1)
         return len(google_seg[start_trim:-end_trim-1])/1000
 
     def answer_score(self):
