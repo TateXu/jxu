@@ -1075,7 +1075,7 @@ class NIBSAudio(NIBS):
                     str(id_vl_mk), str(id_ans))
                 self.plain_tts(text=text[id_ans], folder=tts_folder,
                                filename=ans_name)
-                tts_duration = self.audio_duration(ans_name)
+                tts_duration = self._audio_duration(tts_folder+ans_name)
 
                 fluency = duration[id_ans] / tts_duration
                 if not multiple_ans_flag:
@@ -1086,42 +1086,27 @@ class NIBSAudio(NIBS):
                     self.metric[id_vl_mk][1].append(onset[id_ans])
                     self.metric[id_vl_mk][2].append(fluency)
 
-        self._save_pkl(self.metric, self.audio_folder+'Marker/metric.pkl')
+        self._save_pkl(self.metric, self.audio_folder+'Marker/')
 
         return self
 
 
         pass
 
-    def audio_duration(self):
+    def _audio_duration(self, file_path):
 
         # add attribute self.qa_info.ANSWER_INFO.ans_duration&
-        # .ans_tts_duration
         from jxu.audio.audiosignal import detect_leading_silence as dls
         from pydub import AudioSegment
 
         assert hasattr(self.qa_info.ANSWER_INFO, 'ans_google_loc'), 'Run ' + \
             'text_to_audio() first!'
 
-        google_dur_list = []
-        for index, entry in self.qa_info.iterrows():
-            if entry.ANSWER_INFO.ans_google_loc is None:
-                google_dur_list.append(None)
-                continue
-            google_seg = AudioSegment.from_file(
-                entry.ANSWER_INFO.ans_google_loc)
-            start_trim = dls(google_seg, silence_threshold=-80.0, chunk_size=1)
-            end_trim = dls(google_seg.reverse(), silence_threshold=-80.0,
-                           chunk_size=1)
-            google_dur_list.append(
-                len(google_seg[start_trim:-end_trim-1])/1000)
-
-        self.qa_info[
-            ('ANSWER_INFO', 'ans_duration')] = self.valid_seg_marker[:, -1]
-        self.qa_info[('ANSWER_INFO', 'ans_tts_duration')] = google_dur_list
-        self._save_pkl(self.qa_info, self.qa_pkl)
-
-        return self
+        google_seg = AudioSegment.from_file(file_path)
+        start_trim = dls(google_seg, silence_threshold=-80.0, chunk_size=1)
+        end_trim = dls(google_seg.reverse(), silence_threshold=-80.0,
+                        chunk_size=1)
+        return len(google_seg[start_trim:-end_trim-1])/1000
 
     def answer_score(self):
 
