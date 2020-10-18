@@ -1011,26 +1011,85 @@ class NIBSAudio(NIBS):
 
         return self
 
-    def plain_tts(self, text, filename, audio_rate=0.9, pitch=0.0, lang='en-US',
-                  file_root='/home/jxu/File/Data/NIBS/Stage_one/Audio/Others/'):
+    def plain_tts(self, text, filename, audio_rate=0.9, pitch=0.0, lang='de-DE',
+                  folder='/home/jxu/File/Data/NIBS/Stage_one/Audio/Others/'):
 
         ssml_root = '<speak>', '</speak>'
         ssml_string = ssml_root[0] + text + ssml_root[1]
         try:
-            self.google_text_to_speech(ssml_string, file_root+filename,
+            self.google_text_to_speech(ssml_string, folder+filename,
                                        speed=audio_rate, pitch=pitch, lang=lang)
         except:
             print('Run google_credential_act')
 
         return self
 
-
-    def text_to_audio():
+    def text_to_audio(self):
 
         # Use google text to speech
         # Answer text -> Audio, i.e., standard audio. Rate should be 0.9, TTS.
 
-        # add attribute ANSWER_INFO.ans_tts_audio_loc
+        # add attribute ANSWER_INFO.ans_tts_audio_loc (deprecated)
+
+        assert hasattr(self, 'valid_seg_marker'), 'Run valid_seg() first!'
+
+        try:
+            with open(self.audio_folder + 'Marker/metric.pkl',
+                      'rb') as f_metric_in:
+                self.metric = pickle.load(f_metric_in)
+            init_ind = np.sum(self.metric[:, 0] != None)
+        except FileNotFoundError:
+            self.metric = np.empty(
+                (self.nr_qa_trial, 3), dtype='object')
+            init_ind = 0
+
+        # self.metric:  [Blank_flag, onset, fluency]
+
+        tts_folder = self.audio_folder + 'TTS_answer_audio/'
+
+        create_folder(tts_folder)
+
+        for id_vl_mk, vl_mk in enumerate(self.valid_seg_marker):
+
+            if id_vl_mk < init_ind:
+                continue
+            noise_flag, _, onset, duration, text = vl_mk
+
+            multiple_ans_flag = isinstance(noise_flag, list)
+            if not multiple_ans_flag:
+                if not noise_flag:  # Only have one noise answer
+                    self.metric[id_vl_mk] = [False, None, None]
+                    continue
+            else:
+                if not np.any(noise_flag):  # Have multiple noise answers
+                    self.metric[id_vl_mk] = [False, None, None]
+                    continue
+                else:
+                    self.metric[id_vl_mk][1] = []
+                    self.metric[id_vl_mk][2] = []
+
+            for id_ans in range(len(noise_flag)):
+                if not multiple_ans_flag:
+                    text = [text]
+                ans_name = 'tts_ans_Q{0}_{1}.mp3'.format(
+                    str(id_vl_mk), str(id_ans))
+                self.plain_tts(text=text[id_ans], folder=tts_folder,
+                               filename=ans_name)
+                tts_duration = self.audio_duration(ans_name)
+
+                fluency = duration[id_ans] / tts_duration
+                if not multiple_ans_flag:
+                    self.metric[id_vl_mk] = [True, onset, fluency]
+
+                else:
+                    self.metric[id_vl_mk][0] = True
+                    self.metric[id_vl_mk][1].append(onset[id_ans])
+                    self.metric[id_vl_mk][2].append(fluency)
+
+        self._save_pkl(self.metric, self.audio_folder+'Marker/metric.pkl')
+
+        return self
+
 
         pass
 
