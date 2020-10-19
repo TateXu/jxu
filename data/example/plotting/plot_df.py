@@ -46,11 +46,17 @@ def subset_df(input_df, info_dict):
     return temp_df
 
 
+# -----------------------------------------------------------------------------
+# Load data containing all behavioral data
+# -----------------------------------------------------------------------------
 file_root = './'  # '/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/Data/'
 dataframe_path = file_root + 'all_metric_df.pkl'
 
 all_metric_df = pd.read_pickle(dataframe_path)
 
+# -----------------------------------------------------------------------------
+# Extract the data related to first or last answers
+# -----------------------------------------------------------------------------
 no_duplicate_col_name = [('META_INFO', 'subject'),
                          ('META_INFO', 'session'),
                          ('META_INFO', 'q_ind')]
@@ -65,10 +71,51 @@ last_answer_df = all_metric_df.drop_duplicates(
 first_answer_df_ = all_metric_df.loc[all_metric_df[('META_INFO', 'a_ind')] == 0]
 assert first_answer_df_.equals(first_answer_df), 'Inconsistend first word dataframes extracted via two different ways'
 
+
+# -----------------------------------------------------------------------------
+# Example code for extracting interested subset of data
+# -----------------------------------------------------------------------------
 # Add the info about which subset you want to select, refer to the top dict
 subset_info = {('META_INFO', 'block'): 0,
                ('META_INFO', 'subject'): 1,
                }
-pre_df = subset_df(first_answer_df, subset_info)
+pre_s1_df = subset_df(first_answer_df, subset_info)
+
+# Example for extracting the data as a numpy array
+pre_s1_onset_val = pre_s1_df.METRICS.onset.values
+
+# -----------------------------------------------------------------------------
+# Plotting for results
+# -----------------------------------------------------------------------------
+
+# Note that the multiple index key was allowed for seaborn in 0.9.0 but not
+# anymore in the newest 0.11.0. Hence add a function to drop the first level
+def drop_col(input_df):
+    input_df.columns = input_df.columns.droplevel()
+    return input_df
+
+fig_folder = './figures/'
+
+
+subset_info = {('META_INFO', 'block'): 0,
+               }
+pre_s1_df = subset_df(first_answer_df, subset_info)
+
+import pdb;pdb.set_trace()
+
+title_list = ['pre_stim', 'stim_1', 'stim_2', 'post']
+sns.histplot(x='onset', data=drop_col(pre_s1_df))
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
 
 import pdb;pdb.set_trace()
