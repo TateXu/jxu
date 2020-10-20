@@ -63,11 +63,6 @@ def subplot_generator(fig, rows, cols):
     for irow in range(rows):
         for icol in range(cols):
             ax[irow, icol] = fig.add_subplot(gs[irow, icol])
-
-            if irow >= 4:
-                ax[irow, icol].set_xticks([])
-                ax[irow, icol].set_yticks([])
-
     return gs, ax
 
 
@@ -124,7 +119,7 @@ freq_list = ['Pooling', '0', '4', '10', '40']
 subject_list = [0, 1, 2, 3, 5, 6, 7, 8, 10]
 
 unit_row = 4
-unit_col = 8
+unit_col = 4
 
 n_row = 6
 n_col = 5
@@ -146,145 +141,92 @@ def perm_test_one(xs, ys, nperm):
     return p_left / nperm, p_right / nperm, p_both / nperm
 
 
-metric = 'Onset'  # 'Fluency' 'Fluency'  #
+metric = 'Fluency'  # Onset'' 'Fluency'  #
 xlabel = 'Time / s'  # 'Answer duration / Baseline'  #
 
+fig_type = 'pval_table'
 
 
-plt_sig_t = True
-fig_type = 'hist'
-suffix_sig_t = '_st' if plt_sig_t else ''
+def pval_table(cp_df):
+    print(1)
 
-
-cp_df = first_answer_df.copy()
-
-cp_df = drop_col(cp_df)
-
-pval_df_col = ['large_block', 'small_block', 'pval']
-# pval_df_list = []
-pval_df = pd.DataFrame(columns=pval_df_col)
-for idrow in range(4):
-
-    subset_info = {'block': idrow}
-    df_row = subset_df(cp_df, subset_info)
-    df_row_val = df_row.onset.values
-
-    pval_df = pval_df.append({'large_block': idrow,
-                              'small_block': idrow,
-                              'pval': 0.0}, ignore_index=True)
-    for idcol in range(idrow+1, 4):
-        subset_info = {'block': idcol}
-        df_col = subset_df(cp_df, subset_info)
-        df_col_val = df_col.onset.values
-
-        p_l, p_r, p_two = perm_test_one(df_row_val, df_col_val, 10000)
+    pval_df_col = ['large_block', 'small_block', 'pval']
+    # pval_df_list = []
+    pval_df = pd.DataFrame(columns=pval_df_col)
+    for idrow in range(4):
+        subset_info = {'block': idrow}
+        df_row = subset_df(cp_df, subset_info)
+        df_row_val = df_row.onset.values
 
         pval_df = pval_df.append({'large_block': idrow,
-                                  'small_block': idcol,
-                                  'pval': p_l}, ignore_index=True)
-        pval_df = pval_df.append({'large_block': idcol,
                                   'small_block': idrow,
-                                  'pval': p_r}, ignore_index=True)
-new_pval_df = pval_df.pivot('large_block', 'small_block', 'pval')
-ax = sns.heatmap(new_pval_df, annot=True)
+                                  'pval': 0.0}, ignore_index=True)
+        for idcol in range(idrow+1, 4):
+            subset_info = {'block': idcol}
+            df_col = subset_df(cp_df, subset_info)
+            df_col_val = df_col.onset.values
+
+            p_l, p_r, p_two = perm_test_one(df_row_val, df_col_val, 10000)
+
+            pval_df = pval_df.append({'large_block': idrow,
+                                      'small_block': idcol,
+                                      'pval': p_l}, ignore_index=True)
+            pval_df = pval_df.append({'large_block': idcol,
+                                      'small_block': idrow,
+                                      'pval': 1.0 - p_r}, ignore_index=True)
+    new_pval_df = pval_df.pivot('large_block', 'small_block', 'pval')
+
+    return new_pval_df
 import pdb;pdb.set_trace()
 
 
-
+one_level_df = drop_col(first_answer_df.copy())
 
 for isubj in subject_list:
+    print(isubj)
+
+    if isubj != 0:
+        subj_str = 'S' + str(isubj)
+        subset_info = {'subject': isubj}
+        select_df = subset_df(one_level_df.copy(), subset_info)
+    else:
+        subj_str = 'All_subjects'
+        select_df = one_level_df.copy()
 
     fig = plt.figure(
-        constrained_layout=True, figsize=[n_col*unit_col, n_row*unit_row])
-    hist_gs, hist_ax = subplot_generator(fig, n_row, n_col)
+        constrained_layout=True, figsize=[4*unit_col, 2*unit_row])
 
-    for i in range(5):
-        if i != 4:
-            if isubj == 0:
-                scale = 1
-                subj_str = 'All_subjects'
-                subset_info = {('META_INFO', 'block'): i,
-                               }
-            else:
-                scale = 8
-                subj_str = 'S' + str(isubj)
-                subset_info = {('META_INFO', 'block'): i,
-                               ('META_INFO', 'subject'): isubj,
-                               }
-            select_df = subset_df(first_answer_df, subset_info)
-            sns.histplot(x=metric.lower(), data=drop_col(select_df),
-                         ax=hist_ax[i, 0], bins=20)
-            hist_ax[i, 0].set_title(block_list[i] + ' ' + freq_list[0])
-            hist_ax[i, 0].set_xlabel(xlabel)
+    gs = GridSpec(2, 4, figure=fig)
 
-            if metric == 'Onset':
-                hist_ax[i, 0].set_xlim([0, 11])
-                hist_ax[i, 0].set_ylim([0, 280/scale])
-            elif metric == 'Fluency':
-                hist_ax[i, 0].set_xlim([0, 3])
-                hist_ax[i, 0].set_ylim([0, 420/scale])
-            for j in range(1, 5):
-                further_subset_info = {'freq': int(freq_list[j]),
-                                       }
-                freq_select_df = subset_df(select_df, further_subset_info)
-                sns.histplot(x=metric.lower(), data=freq_select_df,
-                             ax=hist_ax[i, j], bins=20)
-                hist_ax[i, j].set_title(
-                    block_list[i] + '-' + freq_list[j] + 'Hz')
-                hist_ax[i, j].set_xlabel(xlabel)
-                if metric == 'Onset':
-                    hist_ax[i, j].set_xlim([0, 11])
-                    hist_ax[i, j].set_ylim([0, 70/scale])
-                elif metric == 'Fluency':
-                    hist_ax[i, j].set_xlim([0, 3])
-                    hist_ax[i, j].set_ylim([0, 105/scale])
-        else:
+    pval_ax = []
+    pval_ax.append(fig.add_subplot(gs[:, :2]))
+    pval_ax.append(fig.add_subplot(gs[0, 2]))
+    pval_ax.append(fig.add_subplot(gs[0, 3]))
+    pval_ax.append(fig.add_subplot(gs[1, 2]))
+    pval_ax.append(fig.add_subplot(gs[1, 3]))
 
-            if isubj == 0:
-                metric_df_cp = first_answer_df.copy()
-            else:
-                subj_info = {('META_INFO', 'subject'): isubj}
-                metric_df_cp = subset_df(first_answer_df.copy(), subj_info)
+    overall_stim_df = pval_table(select_df)
+    sns.heatmap(overall_stim_df, annot=True, ax=pval_ax[0])
 
-            violin_ax = fig.add_subplot(hist_gs[-2:, 1:])
-            sns.boxplot(x='freq', y=metric.lower(), hue='block',
-                        showfliers=False, data=drop_col(metric_df_cp),
-                        ax=violin_ax)
-            if plt_sig_t:
-                box_pairs = [
-                    ((0, 0), (0, 1)),
-                    ((0, 0), (0, 2)),
-                    ((0, 0), (0, 3)),
-                    ((0, 3), (0, 1)),
-                    ((0, 3), (0, 2)),
-                    ((4, 0), (4, 1)),
-                    ((4, 0), (4, 2)),
-                    ((4, 0), (4, 3)),
-                    ((4, 3), (4, 1)),
-                    ((4, 3), (4, 2)),
-                    ((10, 0), (10, 1)),
-                    ((10, 0), (10, 2)),
-                    ((10, 0), (10, 3)),
-                    ((10, 3), (10, 1)),
-                    ((10, 3), (10, 2)),
-                    ((40, 0), (40, 1)),
-                    ((40, 0), (40, 2)),
-                    ((40, 0), (40, 3)),
-                    ((40, 3), (40, 1)),
-                    ((40, 3), (40, 2)),
-                    ]
+    for id_f, f in enumerate([0, 4, 10, 40]):
+        further_subset_info = {'freq': f}
+        stim_df = subset_df(select_df.copy(), further_subset_info)
 
-                add_stat_annotation(violin_ax, data=metric_df_cp, x='freq',
-                                    y=metric.lower(), hue='block',
-                                    box_pairs=box_pairs, test='t-test_ind',
-                                    loc='inside', verbose=2,
-                                    comparisons_correction=None,
-                                    stats_params={'nan_policy': 'omit'})
-            violin_ax.set_xticklabels([text + ' Hz' for text in freq_list[1:]])
+        spec_stim_df = pval_table(stim_df)
+        sns.heatmap(spec_stim_df, annot=True, ax=pval_ax[id_f+1])
 
-    title = '{0}_{1}_{2}{3}'.format(metric, fig_type, subj_str, suffix_sig_t)
+    stim_list = ['All_stim', '0Hz', '4Hz', '10Hz', '40Hz']
+    for id_ax, id_stim in zip(pval_ax, stim_list):
+
+        id_ax.set_xlim([-0.5, 4.5])
+        id_ax.set_ylim([-0.5, 4.5])
+        id_ax.set_xticklabels(['pre_stim', 'stim_1', 'stim_2', 'post_stim'])
+        id_ax.set_yticklabels(['pre_stim', 'stim_1', 'stim_2', 'post_stim'])
+        id_ax.set_title(id_stim)
+    title = '{0}_{1}_{2}'.format(metric, fig_type, subj_str)
     fig.suptitle(title)
     plt.savefig('{0}{1}.png'.format(fig_folder, title))
+
     plt.close(fig)
 
 

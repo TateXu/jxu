@@ -2,9 +2,9 @@
 # Author     : Jiachen Xu
 # Blog       : www.jiachenxu.net
 # Time       : 2020-10-18 20:25:44
-# Name       : plot_df.py
+# Name       : plot_df_hist.py
 # Version    : V1.0
-# Description: analysis behavior performance using all_metric_df
+# Description: analysis behavior performance using all_metric_df and hist plot
 ##=============================================================================
 
 import numpy as np
@@ -129,68 +129,12 @@ unit_col = 8
 n_row = 6
 n_col = 5
 
-def perm_test_one(xs, ys, nperm):
-    n = xs.shape[0]
-    true_diff = np.nanmean(xs) - np.nanmean(ys)
-
-    min_t = np.minimum(true_diff, -true_diff)
-    max_t = np.maximum(true_diff, -true_diff)
-    p_left, p_right, p_both = 0, 0, 0
-    zs = np.concatenate([xs, ys])
-    for j in range(nperm):
-        np.random.shuffle(zs)
-        t_perm = np.nanmean(zs[:n]) - np.nanmean(zs[n:])
-        p_left += t_perm < min_t
-        p_right += t_perm > max_t
-        p_both += np.abs(true_diff) < np.abs(t_perm)
-    return p_left / nperm, p_right / nperm, p_both / nperm
-
-
 metric = 'Onset'  # 'Fluency' 'Fluency'  #
 xlabel = 'Time / s'  # 'Answer duration / Baseline'  #
-
-
 
 plt_sig_t = True
 fig_type = 'hist'
 suffix_sig_t = '_st' if plt_sig_t else ''
-
-
-cp_df = first_answer_df.copy()
-
-cp_df = drop_col(cp_df)
-
-pval_df_col = ['large_block', 'small_block', 'pval']
-# pval_df_list = []
-pval_df = pd.DataFrame(columns=pval_df_col)
-for idrow in range(4):
-
-    subset_info = {'block': idrow}
-    df_row = subset_df(cp_df, subset_info)
-    df_row_val = df_row.onset.values
-
-    pval_df = pval_df.append({'large_block': idrow,
-                              'small_block': idrow,
-                              'pval': 0.0}, ignore_index=True)
-    for idcol in range(idrow+1, 4):
-        subset_info = {'block': idcol}
-        df_col = subset_df(cp_df, subset_info)
-        df_col_val = df_col.onset.values
-
-        p_l, p_r, p_two = perm_test_one(df_row_val, df_col_val, 10000)
-
-        pval_df = pval_df.append({'large_block': idrow,
-                                  'small_block': idcol,
-                                  'pval': p_l}, ignore_index=True)
-        pval_df = pval_df.append({'large_block': idcol,
-                                  'small_block': idrow,
-                                  'pval': p_r}, ignore_index=True)
-new_pval_df = pval_df.pivot('large_block', 'small_block', 'pval')
-ax = sns.heatmap(new_pval_df, annot=True)
-import pdb;pdb.set_trace()
-
-
-
 
 for isubj in subject_list:
 

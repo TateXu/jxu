@@ -64,6 +64,22 @@ def first_onset(onset_list, nr_flag):
     return np.asarray(
         [sg_onset if not isinstance(sg_onset, list) else sg_onset[ind] for sg_onset in onset_list])
 
+def perm_test_one(xs, ys, nperm):
+    n = len(xs)
+    true_diff = np.nanmean(xs) - np.nanmean(ys)
+
+    min_t = np.min(true_diff, -true_diff)
+    max_t = np.max(true_diff, -true_diff)
+    p_left, p_right, p_both = 0, 0, 0
+    zs = np.concatenate([xs, ys])
+    for j in range(nperm):
+        np.random.shuffle(zs)
+        t_perm = np.nanmean(zs[:n]) - np.nanmean(zs[n:])
+        p_left += t_perm < min_t
+        p_right += t_perm > max_t
+        p_both += np.abs(true_diff) < np.abs(t_perm)
+    return p_left / nperm, p_right / nperm, p_both / nperm
+
 
 
 def perm_test(xs, ys, nperm):
