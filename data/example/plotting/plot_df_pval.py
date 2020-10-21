@@ -124,7 +124,38 @@ unit_col = 4
 n_row = 6
 n_col = 5
 
+
+def shuffle_along_axis(a, axis):
+    idx = np.random.rand(*a.shape).argsort(axis=axis)
+    return np.take_along_axis(a,idx,axis=axis)
+
+
 def perm_test_one(xs, ys, nperm):
+    n = xs.shape[0]
+    true_diff = np.nanmean(xs) - np.nanmean(ys)
+
+    min_t = np.minimum(true_diff, -true_diff)
+    max_t = np.maximum(true_diff, -true_diff)
+    p_left, p_right, p_both = 0, 0, 0
+    zs = np.concatenate([xs, ys])
+
+    nperm_zs = np.repeat(zs[:, np.newaxis], nperm, axis=1)
+    shuffle_nperm_zs = shuffle_along_axis(nperm_zs, axis=0)
+
+    mean1 = np.nanmean(shuffle_nperm_zs[:n], axis=0)
+    mean2 = np.nanmean(shuffle_nperm_zs[n:], axis=0)
+    t_perm = mean1 - mean2
+
+    # add 1 because of emipiral sample to avoid pval=0
+    # http://www.statsci.org/smyth/pubs/permp.pdf
+    p_left = (t_perm < min_t).sum() + 1
+    p_right = (t_perm > max_t).sum() + 1
+    p_both = p_left + p_right - 1
+    nperm += 1
+
+    return p_left / nperm, p_right / nperm, p_both / nperm
+
+def perm_test_one_old(xs, ys, nperm):
     n = xs.shape[0]
     true_diff = np.nanmean(xs) - np.nanmean(ys)
 
@@ -147,7 +178,7 @@ xlabel = 'Time / s'  # 'Answer duration / Baseline'  #
 fig_type = 'pval_table'
 
 
-def pval_table(cp_df):
+def pval_table(cp_df, metric):
     print(1)
 
     pval_df_col = ['large_block', 'small_block', 'pval']
@@ -156,24 +187,23 @@ def pval_table(cp_df):
     for idrow in range(4):
         subset_info = {'block': idrow}
         df_row = subset_df(cp_df, subset_info)
-        df_row_val = df_row.onset.values
+        df_row_val = df_row[metric].values
 
-        pval_df = pval_df.append({'large_block': idrow,
-                                  'small_block': idrow,
-                                  'pval': 0.0}, ignore_index=True)
-        for idcol in range(idrow+1, 4):
+        for idcol in range(4):
+            if idrow == idcol:
+                pval_df = pval_df.append({'large_block': idrow,
+                                          'small_block': idcol,
+                                          'pval': 0.0}, ignore_index=True)
+                continue
             subset_info = {'block': idcol}
             df_col = subset_df(cp_df, subset_info)
-            df_col_val = df_col.onset.values
+            df_col_val = df_col[metric].values
 
             p_l, p_r, p_two = perm_test_one(df_row_val, df_col_val, 10000)
 
             pval_df = pval_df.append({'large_block': idrow,
                                       'small_block': idcol,
-                                      'pval': p_l}, ignore_index=True)
-            pval_df = pval_df.append({'large_block': idcol,
-                                      'small_block': idrow,
-                                      'pval': 1.0 - p_r}, ignore_index=True)
+                                      'pval': p_two}, ignore_index=True)
     new_pval_df = pval_df.pivot('large_block', 'small_block', 'pval')
 
     return new_pval_df
@@ -205,14 +235,14 @@ for isubj in subject_list:
     pval_ax.append(fig.add_subplot(gs[1, 2]))
     pval_ax.append(fig.add_subplot(gs[1, 3]))
 
-    overall_stim_df = pval_table(select_df)
+    overall_stim_df = pval_table(select_df, metric=metric.lower())
     sns.heatmap(overall_stim_df, annot=True, ax=pval_ax[0])
 
     for id_f, f in enumerate([0, 4, 10, 40]):
         further_subset_info = {'freq': f}
         stim_df = subset_df(select_df.copy(), further_subset_info)
 
-        spec_stim_df = pval_table(stim_df)
+        spec_stim_df = pval_table(stim_df, metric=metric.lower())
         sns.heatmap(spec_stim_df, annot=True, ax=pval_ax[id_f+1])
 
     stim_list = ['All_stim', '0Hz', '4Hz', '10Hz', '40Hz']
@@ -225,7 +255,7 @@ for isubj in subject_list:
         id_ax.set_title(id_stim)
     title = '{0}_{1}_{2}'.format(metric, fig_type, subj_str)
     fig.suptitle(title)
-    plt.savefig('{0}{1}.png'.format(fig_folder, title))
+    plt.savefig('{0}{1}_both.png'.format(fig_folder, title))
 
     plt.close(fig)
 

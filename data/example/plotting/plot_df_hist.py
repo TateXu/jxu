@@ -118,10 +118,11 @@ pre_s1_onset_val = pre_s1_df.METRICS.onset.values
 # anymore in the newest 0.11.0. Hence add a function to drop the first level
 
 fig_folder = './figures/'
-block_list = ['pre_stim', 'stim_1', 'stim_2', 'post']
+block_list = ['pre_stim', 'stim_1', 'stim_2', 'post', 'pooling']
 
 freq_list = ['Pooling', '0', '4', '10', '40']
 subject_list = [0, 1, 2, 3, 5, 6, 7, 8, 10]
+language_level = [7, 5, 2, 10, 6, 3, 8, 1]
 
 unit_row = 4
 unit_col = 8
@@ -132,117 +133,135 @@ n_col = 5
 metric = 'Onset'  # 'Fluency' 'Fluency'  #
 xlabel = 'Time / s'  # 'Answer duration / Baseline'  #
 
-plt_sig_t = True
-fig_type = 'hist'
-suffix_sig_t = '_st' if plt_sig_t else ''
+for i in range(5):
 
-for isubj in subject_list:
+    fig = plt.figure(figsize=[20, 10], num=i)
+    if i != 4:
+        subset_info = {'block': i}
+        select_df = subset_df(drop_col(first_answer_df.copy()), subset_info)
+    else:
+        select_df = drop_col(first_answer_df.copy())
+    # ax = sns.boxplot(x='subject', y=metric.lower(), hue='freq',
+    #                  order=language_level, data=select_df)
+    ax = sns.boxplot(hue='subject', y=metric.lower(), x='freq',
+                     hue_order=language_level, data=select_df)
+    ax.set_title(block_list[i])
 
-    fig = plt.figure(
-        constrained_layout=True, figsize=[n_col*unit_col, n_row*unit_row])
-    hist_gs, hist_ax = subplot_generator(fig, n_row, n_col)
-
-    for i in range(5):
-        if i != 4:
-            if isubj == 0:
-                scale = 1
-                subj_str = 'All_subjects'
-                subset_info = {('META_INFO', 'block'): i,
-                               }
-            else:
-                scale = 8
-                subj_str = 'S' + str(isubj)
-                subset_info = {('META_INFO', 'block'): i,
-                               ('META_INFO', 'subject'): isubj,
-                               }
-            select_df = subset_df(first_answer_df, subset_info)
-            sns.histplot(x=metric.lower(), data=drop_col(select_df),
-                         ax=hist_ax[i, 0], bins=20)
-            hist_ax[i, 0].set_title(block_list[i] + ' ' + freq_list[0])
-            hist_ax[i, 0].set_xlabel(xlabel)
-
-            if metric == 'Onset':
-                hist_ax[i, 0].set_xlim([0, 11])
-                hist_ax[i, 0].set_ylim([0, 280/scale])
-            elif metric == 'Fluency':
-                hist_ax[i, 0].set_xlim([0, 3])
-                hist_ax[i, 0].set_ylim([0, 420/scale])
-            for j in range(1, 5):
-                further_subset_info = {'freq': int(freq_list[j]),
-                                       }
-                freq_select_df = subset_df(select_df, further_subset_info)
-                sns.histplot(x=metric.lower(), data=freq_select_df,
-                             ax=hist_ax[i, j], bins=20)
-                hist_ax[i, j].set_title(
-                    block_list[i] + '-' + freq_list[j] + 'Hz')
-                hist_ax[i, j].set_xlabel(xlabel)
-                if metric == 'Onset':
-                    hist_ax[i, j].set_xlim([0, 11])
-                    hist_ax[i, j].set_ylim([0, 70/scale])
-                elif metric == 'Fluency':
-                    hist_ax[i, j].set_xlim([0, 3])
-                    hist_ax[i, j].set_ylim([0, 105/scale])
-        else:
-
-            if isubj == 0:
-                metric_df_cp = first_answer_df.copy()
-            else:
-                subj_info = {('META_INFO', 'subject'): isubj}
-                metric_df_cp = subset_df(first_answer_df.copy(), subj_info)
-
-            violin_ax = fig.add_subplot(hist_gs[-2:, 1:])
-            sns.boxplot(x='freq', y=metric.lower(), hue='block',
-                        showfliers=False, data=drop_col(metric_df_cp),
-                        ax=violin_ax)
-            if plt_sig_t:
-                box_pairs = [
-                    ((0, 0), (0, 1)),
-                    ((0, 0), (0, 2)),
-                    ((0, 0), (0, 3)),
-                    ((0, 3), (0, 1)),
-                    ((0, 3), (0, 2)),
-                    ((4, 0), (4, 1)),
-                    ((4, 0), (4, 2)),
-                    ((4, 0), (4, 3)),
-                    ((4, 3), (4, 1)),
-                    ((4, 3), (4, 2)),
-                    ((10, 0), (10, 1)),
-                    ((10, 0), (10, 2)),
-                    ((10, 0), (10, 3)),
-                    ((10, 3), (10, 1)),
-                    ((10, 3), (10, 2)),
-                    ((40, 0), (40, 1)),
-                    ((40, 0), (40, 2)),
-                    ((40, 0), (40, 3)),
-                    ((40, 3), (40, 1)),
-                    ((40, 3), (40, 2)),
-                    ]
-
-                add_stat_annotation(violin_ax, data=metric_df_cp, x='freq',
-                                    y=metric.lower(), hue='block',
-                                    box_pairs=box_pairs, test='t-test_ind',
-                                    loc='inside', verbose=2,
-                                    comparisons_correction=None,
-                                    stats_params={'nan_policy': 'omit'})
-            violin_ax.set_xticklabels([text + ' Hz' for text in freq_list[1:]])
-
-    title = '{0}_{1}_{2}{3}'.format(metric, fig_type, subj_str, suffix_sig_t)
-    fig.suptitle(title)
-    plt.savefig('{0}{1}.png'.format(fig_folder, title))
-    plt.close(fig)
-
-
-# plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
+    # plt.savefig(metric.lower() + '_groupby_freq_' + str(i) + '_' + block_list[i] + '.png')
+    plt.savefig(metric.lower() + '_groupby_subject_' + str(i) + '_' + block_list[i] + '.png')
 import pdb;pdb.set_trace()
+
+# plt_sig_t = True
+# fig_type = 'hist'
+# suffix_sig_t = '_st' if plt_sig_t else ''
+
+# for isubj in subject_list:
+
+    # fig = plt.figure(
+        # constrained_layout=True, figsize=[n_col*unit_col, n_row*unit_row])
+    # hist_gs, hist_ax = subplot_generator(fig, n_row, n_col)
+
+    # for i in range(5):
+        # if i != 4:
+            # if isubj == 0:
+                # scale = 1
+                # subj_str = 'All_subjects'
+                # subset_info = {('META_INFO', 'block'): i,
+                               # }
+            # else:
+                # scale = 8
+                # subj_str = 'S' + str(isubj)
+                # subset_info = {('META_INFO', 'block'): i,
+                               # ('META_INFO', 'subject'): isubj,
+                               # }
+            # select_df = subset_df(first_answer_df, subset_info)
+            # sns.histplot(x=metric.lower(), data=drop_col(select_df),
+                         # ax=hist_ax[i, 0], bins=20)
+            # hist_ax[i, 0].set_title(block_list[i] + ' ' + freq_list[0])
+            # hist_ax[i, 0].set_xlabel(xlabel)
+
+            # if metric == 'Onset':
+                # hist_ax[i, 0].set_xlim([0, 11])
+                # hist_ax[i, 0].set_ylim([0, 280/scale])
+            # elif metric == 'Fluency':
+                # hist_ax[i, 0].set_xlim([0, 3])
+                # hist_ax[i, 0].set_ylim([0, 420/scale])
+            # for j in range(1, 5):
+                # further_subset_info = {'freq': int(freq_list[j]),
+                                       # }
+                # freq_select_df = subset_df(select_df, further_subset_info)
+                # sns.histplot(x=metric.lower(), data=freq_select_df,
+                             # ax=hist_ax[i, j], bins=20)
+                # hist_ax[i, j].set_title(
+                    # block_list[i] + '-' + freq_list[j] + 'Hz')
+                # hist_ax[i, j].set_xlabel(xlabel)
+                # if metric == 'Onset':
+                    # hist_ax[i, j].set_xlim([0, 11])
+                    # hist_ax[i, j].set_ylim([0, 70/scale])
+                # elif metric == 'Fluency':
+                    # hist_ax[i, j].set_xlim([0, 3])
+                    # hist_ax[i, j].set_ylim([0, 105/scale])
+        # else:
+
+            # if isubj == 0:
+                # metric_df_cp = first_answer_df.copy()
+            # else:
+                # subj_info = {('META_INFO', 'subject'): isubj}
+                # metric_df_cp = subset_df(first_answer_df.copy(), subj_info)
+
+            # violin_ax = fig.add_subplot(hist_gs[-2:, 1:])
+            # sns.boxplot(x='freq', y=metric.lower(), hue='block',
+                        # showfliers=False, data=drop_col(metric_df_cp),
+                        # ax=violin_ax)
+            # if plt_sig_t:
+                # box_pairs = [
+                    # ((0, 0), (0, 1)),
+                    # ((0, 0), (0, 2)),
+                    # ((0, 0), (0, 3)),
+                    # ((0, 3), (0, 1)),
+                    # ((0, 3), (0, 2)),
+                    # ((4, 0), (4, 1)),
+                    # ((4, 0), (4, 2)),
+                    # ((4, 0), (4, 3)),
+                    # ((4, 3), (4, 1)),
+                    # ((4, 3), (4, 2)),
+                    # ((10, 0), (10, 1)),
+                    # ((10, 0), (10, 2)),
+                    # ((10, 0), (10, 3)),
+                    # ((10, 3), (10, 1)),
+                    # ((10, 3), (10, 2)),
+                    # ((40, 0), (40, 1)),
+                    # ((40, 0), (40, 2)),
+                    # ((40, 0), (40, 3)),
+                    # ((40, 3), (40, 1)),
+                    # ((40, 3), (40, 2)),
+                    # ]
+
+                # add_stat_annotation(violin_ax, data=metric_df_cp, x='freq',
+                                    # y=metric.lower(), hue='block',
+                                    # box_pairs=box_pairs, test='t-test_ind',
+                                    # loc='inside', verbose=2,
+                                    # comparisons_correction=None,
+                                    # stats_params={'nan_policy': 'omit'})
+            # violin_ax.set_xticklabels([text + ' Hz' for text in freq_list[1:]])
+
+    # title = '{0}_{1}_{2}{3}'.format(metric, fig_type, subj_str, suffix_sig_t)
+    # fig.suptitle(title)
+    # plt.savefig('{0}{1}.png'.format(fig_folder, title))
+    # plt.close(fig)
+
+
+# # plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+# import pdb;pdb.set_trace()
