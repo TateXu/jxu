@@ -16,19 +16,16 @@ from jxu.viz.utils import *
 import argparse
 import pdb
 
+from jxu.data.preprocess import NIBSEEG
 
-parser = argparse.ArgumentParser(description='Processing NIBS data.', formatter_class=argparse.RawTextHelpFormatter)
-parser.add_argument('-lr', '--load_raw', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Loading completely raw data;')
-parser.add_argument('-sc', '--save_clean', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Saving filtered& cropped raw data;')
-parser.add_argument('-lc', '--load_clean', action='store_true', help='Property: flag;\nDefault=False;\nFunc: Loading filtered& cropped raw data;')
-parser.add_argument('-ec', '--epoch_clean', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Epoching filtered& cropped raw data;')
-parser.add_argument('-erp', '--erp_flag', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Epoching/Processing ERP signal when True;')
-parser.add_argument('-p', '--plt_flag', action='store_true', help='Property: flag;\nDeafult=False;\nFunc: Plotting figures when True;')
-local_args = parser.parse_args()
-locals().update(vars(local_args))
+ses_eeg = NIBSEEG(subject=2, session=0)
+
+ses_eeg.raw_load()
+ses_eeg.raw_filter()
 
 
-nr_events_predefined, event_dict, label_dict, event_dict_expand = nibs_event_dict()
+
+
 
 if platform.system() == 'Linux':
     path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'
@@ -59,6 +56,7 @@ if load_audio_para:
         sorted_onset_answer = np.vstack((onset_answer[np.argsort(onset_answer[:, 1])], temp[no_answer_ind]))
         onset_sort_ind.append((sorted_onset_answer[:,0] - 40 * i).tolist() )
 
+        ses_audio = NIBSAudio(subject=nr_subject, session=nr_ses)
 if load_raw:
     raw = eeg_loader(subject=0, session=1)
 

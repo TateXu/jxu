@@ -81,8 +81,6 @@ class NIBS():
         return self
 
 
-# this is just a test for webhook
-# this is just a test for webhook
 
 
 class NIBSEEG(NIBS):
@@ -108,7 +106,6 @@ class NIBSEEG(NIBS):
             raise ValueError("#Seg != #Raw data")
 
         return self
-
 
     def raw_filter(self):
         print('------- Start filtering-------')

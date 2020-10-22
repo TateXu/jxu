@@ -79,7 +79,7 @@ print(fmri_masked.shape)
 import pdb;pdb.set_trace()
 from sklearn.model_selection import KFold
 from sklearn.svm import SVC
-svc = SVC(kernel='linear')
+svc = SVC(kernel='rbf')
 
 cv = KFold(n_splits=5)
 for train, test in cv.split(X=selected_fmri):
