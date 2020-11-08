@@ -87,13 +87,14 @@ class NIBSEEG(NIBS):
 
     def __init__(self, subject=1, session=0,
                  root='/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/',
-                 bands=[(0.1, 70.0)],
+                 bands=[(0.1, 70.0)], fs=1000,
                  filter_para=dict(
                      method='iir', iir_params=dict(order=5, ftype='butter')),
                  reref='CA', bad_chn_list=None):
         super().__init__(subject=subject, session=session, root=root)
         self.bands = bands
         self.reref = reref
+        self.fs = fs
         self.filter_para = filter_para
         self.bad_chn_list = bad_chn_list
     # -------- File opeartion ---------
@@ -114,11 +115,16 @@ class NIBSEEG(NIBS):
 
         self.filtered_data = []
         for fmin, fmax in self.bands:
-            for raw in self.raw_data:
-                raw_f = raw.copy().filter(l_freq=fmin, h_freq=fmax,
-                                          verbose=False, **self.filter_para)
+            for _raw in self.raw_data:
+                _raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
+                raw_f = _raw.copy().filter(l_freq=fmin, h_freq=fmax,
+                                           verbose=False, **self.filter_para)
                 # method='fir', fir_design='firwin'
-                raw_f.notch_filter(freqs=np.arange(50, 99, 50), picks='eeg')
+                raw_f.notch_filter(freqs=np.arange(50, self.fs/2-1, 50),
+                                   picks='eeg')
+                # also apply filter for EOG channel
+                raw_f.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
+
                 self.filtered_data.append(raw_f)
 
         return self
@@ -179,7 +185,7 @@ class NIBSEEG(NIBS):
         return self
 
     def get_montage(self):
-        pass
+        return prinz('use plot_montage() to plot the electrodes location')
 
     def plot_montage(self, axes='mlab3D', name=False, surfaces='head'):
 
@@ -207,12 +213,43 @@ class NIBSEEG(NIBS):
         pass
 
 
-    def set_bad_channels(self):
-        pass
+    def set_bad_channels(self, bad_chn_list=[]):
+
+        try:
+            print('Try to load local chn list')
+            with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
+                      'rb') as f_in:
+                bad_chn_list = pickle.load(f_in)
+        except FileNotFoundError:
+
+            assert self.raw_data[0].info['ch_names'], "Run set_montage() first"
+            valid_chn_name = self.raw_data[0].info['ch_names']
+
+            if not bad_chn_list:
+                input_flag = 1
+                while input_flag:
+                    bad_chn_name = input("Please input the bad chn name or " +
+                                         " 0 -  finish input\n")
+
+                    if bad_chn_name == '0':
+                        input_flag = 0
+                    else:
+                        if bad_chn_name in valid_chn_name:
+                            bad_chn_list.append(bad_chn_name)
+                        else:
+                            print("Invalid chn name; All cap except h, Fp, XFp")
+
+            with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
+                      'wb') as f_out:
+                pickle.dump(bad_chn_list, f_out)
+
+        self.bad_chn_list = bad_chn_list
+
+        return self
 
 
     def get_bad_channels(self):
-        pass
+        return print('please check attr: bad_chn_list')
 
 
     # -------- Preprocessing ----------
@@ -226,7 +263,11 @@ class NIBSEEG(NIBS):
 
 
     def rereference(self):
-        pass
+
+        if self.reref == 'CA':
+            raw_ca = raw_f.copy().set_eeg_reference(ref_channels='average')
+
+        return self
 
 
     # ----------- Sanity Check --------

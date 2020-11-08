@@ -110,7 +110,8 @@ def nibs_event_dict():
                             'QA_cen_word': 160,
                             'Pause': 6,
                             'Break': 180}
-
+    """
+    Old version of event list
     event_dict = {'Pre_run': [0, 1],
                   'Post_run': [2, 3],
                   'Run': [4, 5],
@@ -136,9 +137,48 @@ def nibs_event_dict():
                   'QA_cen_word': [50, 51],
                   'Pause': [60, 61],
                   'Break': [62, 63]}
+    """
+
+    event_dict = {'ESC': 1,
+                'Test': 253,
+                'Main': 254,
+                'End':255,
+                'Pre_run': [2, 3],
+                'Post_run': [8, 9],
+                'Run': [4, 5],
+                'Block': [6, 7],
+                'Cali_intro': [10, 11],
+                'Cali_trial': [12, 13],
+                'Cali_display': [14, 15],
+                'Cali_ans': [16, 17],
+                'Cali_rec': [18, 19],
+                'Stim': [20, 21],
+                'Sham': [22, 23],
+                'Fade_in': [24, 25],
+                'Fade_out': [26, 27],
+                'Stable_stim': [28, 29],
+                'RS_intro': [30, 31],
+                'RS_open': [32, 33],
+                'RS_close': [34, 35],
+                'QA_intro': [40, 41],
+                'QA_trial': [42, 43],
+                'QA_audio': [44, 45],
+                'QA_ans': [46, 47],
+                'QA_rec': [48, 49],
+                'QA_cen_word': [50, 51],
+                'Pause': [60, 61],
+                'Break': [62, 63],
+                'Arti_intro': [70, 71],
+                'Arti_trial': [72, 73],
+                'Arti_action': [74, 75],
+                'Arti_rec': [78, 79]}
+
     label_dict = [*event_dict.keys()]
     event_dict_expand = {}
     for i, keys in enumerate(label_dict):
+        if i < 4:
+            event_dict_expand[keys] = event_dict[keys]
+            continue
         event_dict_expand[keys + '_start'] = event_dict[keys][0]
         event_dict_expand[keys + '_end'] = event_dict[keys][1]
 
@@ -146,7 +186,6 @@ def nibs_event_dict():
 
 
 def trigger_detector(raw, event_dict, event_dict_expand, nr_events_predefined):
-
 
     events, event_id = mne.events_from_annotations(raw)
     label_dict = [*event_dict.keys()]

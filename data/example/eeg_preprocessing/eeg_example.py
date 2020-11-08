@@ -21,16 +21,41 @@ from jxu.data.preprocess import NIBSEEG
 ses_eeg = NIBSEEG(subject=2, session=0)
 
 ses_eeg.raw_load()
+import pdb;pdb.set_trace()
 ses_eeg.raw_filter()
-
-
-
+ses_eeg.set_montage()
+import pdb;pdb.set_trace()
+ses_eeg.set_bad_channels()
+import pdb;pdb.set_trace()
 
 
 if platform.system() == 'Linux':
     path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'
 elif platform.system() == 'Darwin':
     path = '/Users/xujiachen/File/Data/NIBS/Stage_one/ZWS/ZWS_SESSION_1/'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 load_audio_para = True

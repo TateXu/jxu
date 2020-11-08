@@ -9,6 +9,8 @@
 
 import numpy as np
 import nilearn
+import matplotlib
+matplotlib.use('tkagg')
 from matplotlib import pyplot as plt
 
 file_root = '/home/jxu/File/Data/fMRI/Emotion/'
@@ -61,10 +63,10 @@ from nilearn.image import mean_img
 plotting.view_img(mean_img(fmri_filename), threshold=None)
 
 
-
 mask_filename = file_root + roi
 plotting.plot_roi(mask_filename, cmap='Paired')
 
+import pdb;pdb.set_trace()
 
 
 from nilearn.input_data import NiftiMasker
