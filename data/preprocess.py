@@ -10,13 +10,13 @@
 from google.cloud import texttospeech
 from jxu.basiccmd.mycmd import create_folder
 from jxu.data.loader import vhdr_load
-from jxu.data.utils import *
+from jxu.data.utils import nibs_event_dict
 from jxu.viz.utils import *
 import os
 import numpy as np
 from numpy.fft import fft, fftfreq
 from scipy import signal
-import matplotlib.pyplot as plt
+
 from itertools import product
 from mne.viz import plot_epochs_image
 import platform
@@ -27,9 +27,12 @@ from pydub.playback import play as pd_play
 from jxu.audio.audiosignal import audio_denoise, wav_std
 from auditok import AudioRegion
 
-
 from scipy.io import wavfile # scipy library to read wav files
 import mne
+
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 import warnings
 import pickle
@@ -272,8 +275,83 @@ class NIBSEEG(NIBS):
 
     # ----------- Sanity Check --------
 
-    def trigger_check(self):
-        pass
+    def trigger_check(self, cp_flag=False):
+        self.nr_evt, self.evt, self.lb_dict, self.evt_ext = nibs_event_dict()
+
+        mne.concatenate_raws(self.raw_data)
+        if cp_flag:
+            raw_concat = self.raw_data[0].copy()
+        else:
+            raw_concat = self.raw_data[0]
+
+        self.trigger_detector(raw_concat)
+        temp = raw_concat.annotations.onset
+        diff = temp[1:] - temp[:-1]
+        ts_list = [(661.868, 3106.900),
+                   (3145.150, None)]
+
+        crop_list = []
+        evt_list = []
+        for (s_ts, e_ts) in ts_list:
+            raw_seg = raw_concat.copy().crop(tmin=s_ts, tmax=e_ts)
+            events, event_id = mne.events_from_annotations(raw_seg)
+            crop_list.append(raw_seg)
+            raw_seg = raw_concat.copy().crop(tmin=s_ts, tmax=e_ts)
+            evt_list.append(events)
+
+        from copy import deepcopy
+
+        old_crop_list = deepcopy(crop_list)
+
+        temp_1, evt = mne.concatenate_raws(crop_list, events_list=evt_list)
+        import pdb;pdb.set_trace()
+        self.trigger_detector(crop_list[0])
+        self.trigger_detector(old_crop_list[0])
+        self.trigger_detector(old_crop_list[1])
+        import pdb;pdb.set_trace()
+
+        return self
+
+    def trigger_detector(self, raw):
+
+        event_dict = self.evt
+        event_dict_expand = self.evt_ext
+        nr_events_predefined = self.nr_evt
+        events, event_id = mne.events_from_annotations(raw)
+        # label_dict = [*event_dict.keys()]
+
+        full_trigger_name_list = [*event_dict_expand.keys()]
+
+        full_trigger_list = [*event_dict_expand.values()]
+        presented_trigger_list = [*event_id.values()]
+
+        unpresented_trigger_list = list(
+            set(full_trigger_list).difference(
+                set(full_trigger_list).intersection(presented_trigger_list)))
+        unpresented_trigger_name_list = [full_trigger_name_list[full_trigger_list.index(tri_val)] for tri_val in unpresented_trigger_list]
+
+        warnings.warn("Following triggers are not presented in the dataset:" +
+                      ', '.join(unpresented_trigger_name_list))
+
+        for ind, (key, val) in enumerate(event_dict.items()):
+
+            if 'intro' in key:
+                continue
+
+            if ind < 4:
+                val = [val, val]
+
+            nr_start = events[np.where(
+                events[:, 2] == val[0])[0], :].shape[0]
+            nr_end = events[np.where(
+                events[:, 2] == val[1])[0], :].shape[0]
+            std_nr = nr_events_predefined[key]
+            print(key + ', std/s/e: ' + str(std_nr) + '/' +
+                  str(nr_start) + '/' + str(nr_end))
+            # print(key + ', std/s: ' + str(std_nr) + '/' + str(nr_start))
+
+
+        return self
 
 
 class NIBSAudio(NIBS):
