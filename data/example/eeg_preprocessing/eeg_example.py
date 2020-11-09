@@ -21,7 +21,7 @@ from jxu.data.preprocess import NIBSEEG
 ses_eeg = NIBSEEG(subject=2, session=0)
 
 ses_eeg.raw_load()
-ses_eeg.trigger_check()
+ses_eeg.trigger_check(cp_flag=True)
 import pdb;pdb.set_trace()
 ses_eeg.raw_filter()
 ses_eeg.set_montage()

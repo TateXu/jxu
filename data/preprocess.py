@@ -276,38 +276,34 @@ class NIBSEEG(NIBS):
     # ----------- Sanity Check --------
 
     def trigger_check(self, cp_flag=False):
+
+        from copy import deepcopy
         self.nr_evt, self.evt, self.lb_dict, self.evt_ext = nibs_event_dict()
 
-        mne.concatenate_raws(self.raw_data)
+        import pdb;pdb.set_trace()
+
         if cp_flag:
-            raw_concat = self.raw_data[0].copy()
+            raw_concat = deepcopy(self.raw_data)
         else:
-            raw_concat = self.raw_data[0]
+            raw_concat = self.raw_data
+
+        raw_concat = mne.concatenate_raws(raw_concat)
 
         self.trigger_detector(raw_concat)
-        temp = raw_concat.annotations.onset
-        diff = temp[1:] - temp[:-1]
         ts_list = [(661.868, 3106.900),
                    (3145.150, None)]
 
         crop_list = []
-        evt_list = []
+        import pdb;pdb.set_trace()
         for (s_ts, e_ts) in ts_list:
             raw_seg = raw_concat.copy().crop(tmin=s_ts, tmax=e_ts)
-            events, event_id = mne.events_from_annotations(raw_seg)
+            raw_seg.annotations.onset -= s_ts
             crop_list.append(raw_seg)
-            raw_seg = raw_concat.copy().crop(tmin=s_ts, tmax=e_ts)
-            evt_list.append(events)
 
-        from copy import deepcopy
+        self.raw_seg_clean = deepcopy(crop_list)
+        self.raw_data_clean = mne.concatenate_raws(crop_list)
 
-        old_crop_list = deepcopy(crop_list)
-
-        temp_1, evt = mne.concatenate_raws(crop_list, events_list=evt_list)
-        import pdb;pdb.set_trace()
         self.trigger_detector(crop_list[0])
-        self.trigger_detector(old_crop_list[0])
-        self.trigger_detector(old_crop_list[1])
         import pdb;pdb.set_trace()
 
         return self

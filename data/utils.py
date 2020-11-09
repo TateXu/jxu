@@ -165,33 +165,3 @@ def nibs_event_dict():
 
     return nr_events_predefined, event_dict, label_dict, event_dict_expand
 
-    """
-    Old version of event list
-    event_dict = {'Pre_run': [0, 1],
-                  'Post_run': [2, 3],
-                  'Run': [4, 5],
-                  'Block': [6, 7],
-                  'Cali_intro': [10, 11],
-                  'Cali_trial': [12, 13],
-                  'Cali_display': [14, 15],
-                  'Cali_ans': [16, 17],
-                  'Cali_rec': [18, 19],
-                  'Stim': [20, 21],
-                  'Sham': [22, 23],
-                  'Fade_in': [24, 25],
-                  'Fade_out': [26, 27],
-                  'Stable_stim': [28, 29],
-                  'RS_intro': [30, 31],
-                  'RS_open': [32, 33],
-                  'RS_close': [34, 35],
-                  'QA_intro': [40, 41],
-                  'QA_trial': [42, 43],
-                  'QA_audio': [44, 45],
-                  'QA_ans': [46, 47],
-                  'QA_rec': [48, 49],
-                  'QA_cen_word': [50, 51],
-                  'Pause': [60, 61],
-                  'Break': [62, 63]}
-    """
-
-
