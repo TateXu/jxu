@@ -280,8 +280,6 @@ class NIBSEEG(NIBS):
         from copy import deepcopy
         self.nr_evt, self.evt, self.lb_dict, self.evt_ext = nibs_event_dict()
 
-        import pdb;pdb.set_trace()
-
         if cp_flag:
             raw_concat = deepcopy(self.raw_data)
         else:
@@ -290,14 +288,16 @@ class NIBSEEG(NIBS):
         raw_concat = mne.concatenate_raws(raw_concat)
 
         self.trigger_detector(raw_concat)
-        ts_list = [(661.868, 3106.900),
-                   (3145.150, None)]
+        ts_list = [(801.670, 3106.900, 0.0),
+                   (3145.150, 8797.199, 0.0),
+                   (9906.416, None, 5029.113)]
 
         crop_list = []
-        import pdb;pdb.set_trace()
-        for (s_ts, e_ts) in ts_list:
+        for (s_ts, e_ts, offset) in ts_list:
             raw_seg = raw_concat.copy().crop(tmin=s_ts, tmax=e_ts)
+            import pdb;pdb.set_trace()
             raw_seg.annotations.onset -= s_ts
+            raw_seg.annotations.onset += offset
             crop_list.append(raw_seg)
 
         self.raw_seg_clean = deepcopy(crop_list)
