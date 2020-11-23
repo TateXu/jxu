@@ -165,3 +165,74 @@ def nibs_event_dict():
 
     return nr_events_predefined, event_dict, label_dict, event_dict_expand
 
+
+def offset_loader(nr_subj, nr_ses):
+
+    subject_list = {'test': [None, None, None, None],
+                    'TES': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'NUK': [
+                        [(801.670, 3106.900, 0.0),
+                         (3145.150, 5029.112, 0.0),
+                         (5029.113, 8797.199, 0.0),
+                         (9906.416, None, 0.0)],  # 5029.113
+                        None,
+                        None,
+                        None],
+                    'OSA': [
+                        [(787.300, 8101.989, 0.0),
+                         (8217.100, None, 0.0)],
+                        None,
+                        None,
+                        None],
+                    'KNL': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'ZYC': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'CCH': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'DWS': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'VQT': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'BXB': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'BMC': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    'ZWS': [
+                        None,
+                        None,
+                        None,
+                        None],
+                    }
+
+    subj_name = [*subject_list.keys()]
+
+    return subject_list[subj_name[nr_subj]][nr_ses]
+
+
+

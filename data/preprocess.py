@@ -275,9 +275,10 @@ class NIBSEEG(NIBS):
 
     # ----------- Sanity Check --------
 
-    def trigger_check(self, cp_flag=False):
+    def trigger_check(self, cp_flag=True):
 
         from copy import deepcopy
+        from .utils import offset_loader
         self.nr_evt, self.evt, self.lb_dict, self.evt_ext = nibs_event_dict()
 
         if cp_flag:
@@ -286,27 +287,125 @@ class NIBSEEG(NIBS):
             raw_concat = self.raw_data
 
         raw_concat = mne.concatenate_raws(raw_concat)
-
         self.trigger_detector(raw_concat)
-        ts_list = [(801.670, 3106.900, 0.0),
-                   (3145.150, 8797.199, 0.0),
-                   (9906.416, None, 5029.113)]
 
-        crop_list = []
-        for (s_ts, e_ts, offset) in ts_list:
-            raw_seg = raw_concat.copy().crop(tmin=s_ts, tmax=e_ts)
-            import pdb;pdb.set_trace()
-            raw_seg.annotations.onset -= s_ts
-            raw_seg.annotations.onset += offset
-            crop_list.append(raw_seg)
+        events, event_id = mne.events_from_annotations(raw_concat)
+        loc, ts_loc = self.find_evt_loc(events, 253)
+        ts_list = offset_loader(self.subject, self.session)
+        if ts_list is not None:
+            crop_list = []
+            for (s_ts, e_ts, offset) in ts_list:
+                raw_cp = raw_concat.copy()
+                raw_seg = raw_cp.crop(tmin=s_ts, tmax=e_ts)
+#                 raw_seg.annotations.onset -= s_ts
+                # raw_seg.annotations.onset += offset
+                raw_seg.annotations.onset[[0, -1]]
+                crop_list.append(raw_seg)
+            self.raw_seg_clean = deepcopy(crop_list)
+            self.raw_data_clean = mne.concatenate_raws(crop_list)
+        else:
+            self.raw_seg_clean = deepcopy(self.raw_data)
+            self.raw_data_clean = deepcopy(raw_concat)
 
-        self.raw_seg_clean = deepcopy(crop_list)
-        self.raw_data_clean = mne.concatenate_raws(crop_list)
-
-        self.trigger_detector(crop_list[0])
         import pdb;pdb.set_trace()
+        self.reset_annot(self.raw_seg_clean)
+
+        self.trigger_detector(self.raw_data_clean)
+        import pdb;pdb.set_trace()
+        return self
+
+    def reset_annot(self, raw_list):
+        from mne import Annotations
+        from copy import deepcopy
+
+        if not isinstance(raw_list, list):
+            raw_list = [raw_list]
+
+        raw_length = np.asarray(
+            [temp._raw_lengths[0] for temp in self.raw_data])
+        raw_length = np.r_[0, raw_length]
+        cum_len = np.cumsum(raw_length)
+
+        onset_list = []
+        description_list = []
+        duration_list = []
+
+        seg_info = np.zeros([len(raw_list), 5], dtype="int64")
+        for i, id_raw in enumerate(raw_list):
+            seg_nr = int(id_raw._filenames[0][-5])
+            init_shift = cum_len[seg_nr]
+            first_sample = id_raw.first_samp
+            last_sample = id_raw.last_samp
+            assert len(id_raw._raw_lengths) == 1, "Non-unique raw seg len"
+            clean_len = id_raw._raw_lengths[0]
+            seg_info[i] = [seg_nr, init_shift, first_sample, last_sample,
+                           clean_len]
+            onset_list.append(id_raw.annotations.onset)
+            description_list.append(id_raw.annotations.description)
+            duration_list.append(id_raw.annotations.duration)
+
+        cum_len_clean = np.cumsum(seg_info[:, -1])
+        abs_loc = seg_info[:, 1:3].sum(axis=1)
+        abs_shift = seg_info[:, 1]
+        relative_loc = np.r_[0, cum_len_clean][:-1]
+        relative_shift = abs_loc - relative_loc
+
+        onset_shift = abs_shift - relative_shift
+
+        self.raw_seg_data_clean = deepcopy(self.raw_seg_clean)
+
+        for i, (id_raw, id_shift) in enumerate(zip(
+                self.raw_seg_data_clean, onset_shift)):
+
+            self.raw_seg_data_clean[i]._first_samps = np.asarray([
+                id_raw.first_samp + id_shift])
+            self.raw_seg_data_clean[i]._last_samps = np.asarray([
+                id_raw.last_samp + id_shift])
+
+            annot = id_raw.annotations
+            assert annot.orig_time == id_raw.info['meas_date']
+            annot.onset += id_shift / id_raw.info["sfreq"]
+
+            self.raw_seg_data_clean[i]._update_times()
+            self.raw_seg_data_clean[i].annotations.onset = annot.onset
+            if i == 0:
+                concat_annot = annot.copy()
+            else:
+                concat_onset = np.concatenate(
+                    [concat_annot.onset, annot.onset])
+                concat_dur = np.concatenate(
+                    [concat_annot.duration, annot.duration])
+                concat_dscp = np.concatenate(
+                    [concat_annot.description, annot.description])
+
+                concat_annot = Annotations(concat_onset,
+                                           concat_dur,
+                                           concat_dscp,
+                                           concat_annot.orig_time)
+
+        self.raw_data_clean._first_samps = [self.raw_data_clean._first_samps[0] + onset_shift[0]]
+        self.raw_data_clean._last_samps = [self.raw_data_clean._last_samps[-1] + onset_shift[-1]]
+
+        self.raw_data_clean._update_times()
+        self.raw_data_clean.set_annotations(concat_annot)
 
         return self
+
+
+    def onset_list(self, raw):
+        if not isinstance(raw, list):
+            raw = [raw]
+        for id_raw in raw:
+            print(id_raw.annotations.onset[[0, -1]])
+
+        return self
+
+    def find_evt_loc(self, events, evt):
+
+        loc = np.where(events[:, 2] == evt)[0]
+        ts_loc = events[loc, :]
+
+        return loc, ts_loc
 
     def trigger_detector(self, raw):
 
@@ -329,6 +428,7 @@ class NIBSEEG(NIBS):
         warnings.warn("Following triggers are not presented in the dataset:" +
                       ', '.join(unpresented_trigger_name_list))
 
+        print("==============================================================")
         for ind, (key, val) in enumerate(event_dict.items()):
 
             if 'intro' in key:
