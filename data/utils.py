@@ -166,6 +166,16 @@ def nibs_event_dict():
     return nr_events_predefined, event_dict, label_dict, event_dict_expand
 
 
+def insert_annot():
+
+    insert_annot_list = np.full([11, 4], None)
+    insert_annot_list[10, 1] = {'onset': 4329.352,
+                                'duration': 0.001,
+                                'description': 'Stimulus/S 72'}
+
+    return insert_annot_list
+
+
 def offset_loader(nr_subj, nr_ses):
 
     subject_list = {'test': [None, None, None, None],
@@ -175,16 +185,16 @@ def offset_loader(nr_subj, nr_ses):
                         None,
                         None],
                     'NUK': [
-                        [(801.670, 3106.900, 0.0),
-                         (3145.150, 5029.112, 0.0),
-                         (5029.113, 8797.199, 0.0),
-                         (9906.416, None, 0.0)],  # 5029.113
+                        [(801.670, 3106.900),
+                         (3145.150, 5029.112),
+                         (5029.113, 8797.199),
+                         (9906.416, None)],  # 5029.113
                         None,
                         None,
                         None],
                     'OSA': [
-                        [(787.300, 8101.989, 0.0),
-                         (8217.100, None, 0.0)],
+                        [(787.300, 8101.989),
+                         (8217.100, None)],
                         None,
                         None,
                         None],
@@ -194,22 +204,29 @@ def offset_loader(nr_subj, nr_ses):
                         None,
                         None],
                     'ZYC': [
-                        None,
+                        [(838.700, 4950.833),
+                         (4950.834, None)],
                         None,
                         None,
                         None],
                     'CCH': [
+                        [(808.900, 7608.055),
+                         (7643.249, 7907.637),
+                         (7919.926, None)],
                         None,
                         None,
                         None,
                         None],
                     'DWS': [
-                        None,
+                        [(718.049, 3804.511),
+                         (3804.512, 8174.484),
+                         (8174.485, None)],
                         None,
                         None,
                         None],
                     'VQT': [
-                        None,
+                        [(1023.100, 4115.097),
+                         (4115.098, None)],
                         None,
                         None,
                         None],
@@ -219,7 +236,8 @@ def offset_loader(nr_subj, nr_ses):
                         None,
                         None],
                     'BMC': [
-                        None,
+                        [(695.430, 1364.736),
+                         (1364.737, None)],
                         None,
                         None,
                         None],

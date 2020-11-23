@@ -278,7 +278,7 @@ class NIBSEEG(NIBS):
     def trigger_check(self, cp_flag=True):
 
         from copy import deepcopy
-        from .utils import offset_loader
+        from .utils import offset_loader, insert_annot
         self.nr_evt, self.evt, self.lb_dict, self.evt_ext = nibs_event_dict()
 
         if cp_flag:
@@ -294,11 +294,9 @@ class NIBSEEG(NIBS):
         ts_list = offset_loader(self.subject, self.session)
         if ts_list is not None:
             crop_list = []
-            for (s_ts, e_ts, offset) in ts_list:
+            for (s_ts, e_ts) in ts_list:
                 raw_cp = raw_concat.copy()
                 raw_seg = raw_cp.crop(tmin=s_ts, tmax=e_ts)
-#                 raw_seg.annotations.onset -= s_ts
-                # raw_seg.annotations.onset += offset
                 raw_seg.annotations.onset[[0, -1]]
                 crop_list.append(raw_seg)
             self.raw_seg_clean = deepcopy(crop_list)
@@ -306,17 +304,19 @@ class NIBSEEG(NIBS):
         else:
             self.raw_seg_clean = deepcopy(self.raw_data)
             self.raw_data_clean = deepcopy(raw_concat)
-
         import pdb;pdb.set_trace()
-        self.reset_annot(self.raw_seg_clean)
 
+        self.reset_annot(self.raw_seg_clean)
         self.trigger_detector(self.raw_data_clean)
+        events_, event_id_ = mne.events_from_annotations(self.raw_data_clean)
+
         import pdb;pdb.set_trace()
         return self
 
     def reset_annot(self, raw_list):
         from mne import Annotations
         from copy import deepcopy
+        from .utils import insert_annot
 
         if not isinstance(raw_list, list):
             raw_list = [raw_list]
@@ -388,6 +388,11 @@ class NIBSEEG(NIBS):
 
         self.raw_data_clean._update_times()
         self.raw_data_clean.set_annotations(concat_annot)
+
+        self.insert_annot_list = insert_annot()
+        if self.insert_annot_list[self.subject, self.session] is not None:
+            self.raw_data_clean.annotations.append(
+                **self.insert_annot_list[self.subject, self.session])
 
         return self
 
