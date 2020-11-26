@@ -304,13 +304,11 @@ class NIBSEEG(NIBS):
         else:
             self.raw_seg_clean = deepcopy(self.raw_data)
             self.raw_data_clean = deepcopy(raw_concat)
-        import pdb;pdb.set_trace()
 
         self.reset_annot(self.raw_seg_clean)
         self.trigger_detector(self.raw_data_clean)
         events_, event_id_ = mne.events_from_annotations(self.raw_data_clean)
 
-        import pdb;pdb.set_trace()
         return self
 
     def reset_annot(self, raw_list):

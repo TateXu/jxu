@@ -173,6 +173,9 @@ def insert_annot():
                                 'duration': 0.001,
                                 'description': 'Stimulus/S 72'}
 
+    insert_annot_list[6, 2] = {'onset': 8315.128,
+                               'duration': 0.001,
+                               'description': 'Stimulus/S 42'}
     return insert_annot_list
 
 
@@ -196,8 +199,11 @@ def offset_loader(nr_subj, nr_ses):
                         [(787.300, 8101.989),
                          (8217.100, None)],
                         None,
-                        None,
-                        None],
+                        [(0.0, 690.194),
+                         (856.415, None)],
+                        [(0.0, 3925.960),
+                         (4272.735, None)]
+                        ],
                     'KNL': [
                         None,
                         None,
@@ -207,14 +213,18 @@ def offset_loader(nr_subj, nr_ses):
                         [(838.700, 4950.833),
                          (4950.834, None)],
                         None,
-                        None,
+                        [(0.0, 1763.348),
+                         (1848.182, 9215.900),
+                         (9306.119, None)
+                        ],
                         None],
                     'CCH': [
                         [(808.900, 7608.055),
                          (7643.249, 7907.637),
                          (7919.926, None)],
-                        None,
-                        None,
+                        [(0.0, 2342.839),
+                         (2342.840, 7307.600),
+                         (7584.217, None)],
                         None,
                         None],
                     'DWS': [
@@ -229,7 +239,9 @@ def offset_loader(nr_subj, nr_ses):
                          (4115.098, None)],
                         None,
                         None,
-                        None],
+                        [(0.0, 4354.860),
+                         (4450.739, None)
+                        ]],
                     'BXB': [
                         None,
                         None,

@@ -19,7 +19,7 @@ import pdb
 from jxu.data.loader import vhdr_load
 from jxu.data.preprocess import NIBSEEG
 from mne.time_frequency import psd_welch
-ses_eeg = NIBSEEG(subject=10, session=1)
+ses_eeg = NIBSEEG(subject=7, session=3)
 
 ses_eeg.raw_load()
 
