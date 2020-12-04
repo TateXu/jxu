@@ -23,46 +23,6 @@ ses_eeg = NIBSEEG(subject=7, session=3)
 
 ses_eeg.raw_load()
 
-ses_eeg.trigger_check(cp_flag=True)
-import pdb;pdb.set_trace()
-
-# psd_list_1, freq_1 = psd_welch(ses_eeg.raw_data_clean, tmin=1844.248 , tmax=2026.620 ,fmax = 100.0, fmin=0.1, picks=["Cz"], n_fft=1024)
-# psd_list_2, freq_2 = psd_welch(ses_eeg.raw_data_clean, tmin=1844.248 , tmax=2026.620 ,fmax = 100.0, fmin=0.1, picks=["Pz"], n_fft=1024)
-
-# bipolar_1 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/bipolar_1_1_a.vhdr")
-# bipolar_2 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/bipolar_1_1_b.vhdr")
-# bipolar_3 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/bipolar_1_2.vhdr")
-
-# bipolar = mne.concatenate_raws([bipolar_1, bipolar_2, bipolar_3])
-
-
-# noise_floor_1 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/noiseFloor_2.vhdr")
-# noise_floor_2 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/noiseFloor_3.vhdr")
-
-
-# noise_floor = mne.concatenate_raws([noise_floor_1, noise_floor_2])
-
-# psd_list_3, freq_3 = psd_welch(bipolar, fmax=100.0, fmin=0.1, n_fft=1024*5)
-# psd_list_4, freq_4 = psd_welch(noise_floor, fmax=100.0, fmin=0.1, n_fft=1024*5, average='mean')
-
-
-# import pdb;pdb.set_trace()
-# temp = np.vstack([psd_list_1, psd_list_2, psd_list_3, psd_list_4[0]])
-# plt.plot(freq_1, np.log10(temp.T)*10)
-# plt.legend(['Cz', 'Pz', 'Bipolar', 'Noise_saline'])
-
-
-# fig, ax = plt.subplots(1,1)
-# ses_eeg.raw_data_clean.plot_psd( tmin=1844.248 , tmax=2026.620 ,fmax = 100.0, fmin=0.1, picks=["Cz"], show=False, ax=ax)
-# ses_eeg.raw_data_clean.plot_psd( tmin=1844.248 , tmax=2026.620 ,fmax = 100.0, fmin=0.1, picks=["Pz"], show=False, ax=ax)
-# bipolar.plot_psd(fmax = 100.0, fmin=0.1, show=False, ax=ax)
-
-# noise_floor.plot_psd(fmax = 100.0, fmin=0.1, show=False, ax=ax)
-# plt.show()
-# import pdb;pdb.set_trace()
-
-
-
 
 
 import pdb;pdb.set_trace()
@@ -71,6 +31,8 @@ ses_eeg.set_montage()
 ses_eeg.set_bad_channels()
 import pdb;pdb.set_trace()
 
+ses_eeg.data_concat(cp_flag=True, filtered_flag=False)
+import pdb;pdb.set_trace()
 
 if platform.system() == 'Linux':
     path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/ZWS/ZWS_SESSION_1/'

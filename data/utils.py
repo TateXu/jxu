@@ -183,7 +183,9 @@ def offset_loader(nr_subj, nr_ses):
 
     subject_list = {'test': [None, None, None, None],
                     'TES': [
-                        None,
+                        [(843.954, 7576.426),
+                         (7576.427, 8752.739),
+                         (8752.740, None)],
                         None,
                         None,
                         None],

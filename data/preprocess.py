@@ -179,7 +179,7 @@ class NIBSEEG(NIBS):
         else:
             bad_chn_dict = None
         montage = mne.channels.read_custom_montage(
-            '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/BC-TMS-128.bvef', unit='auto')
+            '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/BC-TMS-128.bvef')
         for temp_data in self.raw_data:
             temp_data.set_montage(montage)
             if bad_chn_dict is not None:
@@ -275,16 +275,22 @@ class NIBSEEG(NIBS):
 
     # ----------- Sanity Check --------
 
-    def trigger_check(self, cp_flag=True):
+    def data_concat(self, cp_flag=True, filtered_flag=False):
 
         from copy import deepcopy
         from .utils import offset_loader, insert_annot
         self.nr_evt, self.evt, self.lb_dict, self.evt_ext = nibs_event_dict()
 
-        if cp_flag:
-            raw_concat = deepcopy(self.raw_data)
+        if filtered_flag:
+            if cp_flag:
+                raw_concat = deepcopy(self.filtered_data)
+            else:
+                raw_concat = self.filtered_data
         else:
-            raw_concat = self.raw_data
+            if cp_flag:
+                raw_concat = deepcopy(self.raw_data)
+            else:
+                raw_concat = self.raw_data
 
         raw_concat = mne.concatenate_raws(raw_concat)
         self.trigger_detector(raw_concat)
@@ -381,8 +387,10 @@ class NIBSEEG(NIBS):
                                            concat_dscp,
                                            concat_annot.orig_time)
 
-        self.raw_data_clean._first_samps = [self.raw_data_clean._first_samps[0] + onset_shift[0]]
-        self.raw_data_clean._last_samps = [self.raw_data_clean._last_samps[-1] + onset_shift[-1]]
+        self.raw_data_clean._first_samps = np.asarray(
+            [self.raw_data_clean._first_samps[0] + onset_shift[0]])
+        self.raw_data_clean._last_samps = np.asarray(
+            [self.raw_data_clean._last_samps[-1] + onset_shift[-1]])
 
         self.raw_data_clean._update_times()
         self.raw_data_clean.set_annotations(concat_annot)
@@ -680,7 +688,7 @@ class NIBSAudio(NIBS):
         audio_segs = list(ar_obj.split_and_plot(energy_threshold=ET))
         self.seg_marker[id_trial][0] = len(audio_segs)
         self.seg_marker[id_trial][1] = []  # flag: bool, audio or noise
-        self.seg_marker[id_trial][2] = []  # onset
+        self.seg_marker[id_trial][2] = []  #  temaonset
         self.seg_marker[id_trial][3] = []  # end = onset + duration
         self.seg_marker[id_trial][4] = []  # crop_ext_left
         self.seg_marker[id_trial][5] = []  # crop_ext_right
