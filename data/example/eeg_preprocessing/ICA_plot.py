@@ -27,9 +27,9 @@ ses_eeg.raw_load()
 ses_eeg.set_montage()
 ses_eeg.data_concat(cp_flag=True)
 
-ses_eeg.set_bad_channels()
+ses_eeg.set_channels()
 ses_eeg.rereference('average')
-ses_eeg.eeg_filter(l_freq=1, h_freq=70.0, notch=True, concat=True)
+ses_eeg.raw_filter(l_freq=1, h_freq=70.0, notch=True, concat=True)
 
 ica = ICA(n_components=120)
 ica.fit(raw)

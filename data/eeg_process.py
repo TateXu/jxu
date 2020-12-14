@@ -172,7 +172,8 @@ class NIBSEEG(NIBS):
         pass
 
 
-    def set_bad_channels(self, bad_chn_list=[]):
+    def set_channels(self, bad_chn_list=[]):
+
 
         try:
             print('Try to load local chn list')
@@ -203,6 +204,13 @@ class NIBSEEG(NIBS):
                 pickle.dump(bad_chn_list, f_out)
 
         self.bad_chn_list = bad_chn_list
+        self.bad_chn_dict = dict(zip(bad_chn_list, ['stim']*len(bad_chn_list)))
+
+        self.raw_data_clean.set_channel_types(
+            {'Audio': 'stim', 'tACS': 'stim'})
+        self.raw_data_clean.set_channel_types(
+            {'EOG151': 'eog', 'EOG152': 'eog'})
+        self.raw_data_clean.set_channel_types(self.bad_chn_dict)
 
         return self
 
@@ -221,10 +229,16 @@ class NIBSEEG(NIBS):
         pass
 
 
-    def rereference(self):
+    def rereference(self, reref=None):
 
-        if self.reref == 'CA':
-            raw_ca = raw_f.copy().set_eeg_reference(ref_channels='average')
+        if reref is None:
+            reref = self.reref
+
+        if reref == 'average':
+            raw_ca = self.raw_data_clean.copy().set_eeg_reference(
+                ref_channels='average')
+
+        self.data = raw_ca
 
         return self
 
