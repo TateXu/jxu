@@ -27,6 +27,21 @@ ses_eeg.raw_load()
 ses_eeg.set_montage()
 ses_eeg.data_concat(cp_flag=True)
 
+ses_eeg.set_bad_channels()
+ses_eeg.rereference('average')
+ses_eeg.eeg_filter(l_freq=1, h_freq=70.0, notch=True, concat=True)
+
+ica = ICA(n_components=120)
+ica.fit(raw)
+source = ica.get_sources(raw)
+import pdb;pdb.set_trace()
+# img_s = source.plot(show=False)
+# img_prop = ica.plot_properties(raw, picks=18)
+img_comp = ica.plot_components(show=False)
+
+
+
+
 pre_stim = ses_eeg.raw_data_clean.copy()
 pre_stim = pre_stim.crop(tmax=2086.010)
 pre_stim.info['bads'] = ['Audio', 'tACS', 'EOG151', 'EOG152', 'FC3', 'FFC5h', 'FCC5h', 'FC5', 'FTT7h', 'CP5']

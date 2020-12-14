@@ -16,10 +16,14 @@ import numpy as np
 
 filename = "/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/TES/Session_0/TES_seg_0.vhdr"
 
-raw = mne.io.read_raw_brainvision(filename, preload=True)
+full_raw = mne.io.read_raw_brainvision(filename, preload=True)
+
+import pdb;pdb.set_trace()
+raw = full_raw.crop(tmin=0.0, tmax=2.0)
 # plot raw data
-raw.plot()
-raw.plot_psd(fmin=0, fmax=45)
+
+# raw.plot()
+# raw.plot_psd(fmin=0, fmax=45)
 # determine bad channels
 raw.info['bads'] = ['Audio', 'tACS', 'EOG151', 'EOG152', 'FC3', 'FFC5h', 'FCC5h', 'FC5', 'FTT7h', 'CP5']
 # common average reference
@@ -36,9 +40,10 @@ raw.set_montage(montage, on_missing='warn')
 # run ica
 ica = ICA(n_components=120)
 ica.fit(raw)
-s = ica.get_sources(raw)
-s.plot()
-ica.plot_properties(raw, picks=18)
-ica.plot_components()
+source = ica.get_sources(raw)
+import pdb;pdb.set_trace()
+# img_s = source.plot(show=False)
+# img_prop = ica.plot_properties(raw, picks=18)
+img_comp = ica.plot_components(show=False)
 
 import pdb;pdb.set_trace()
