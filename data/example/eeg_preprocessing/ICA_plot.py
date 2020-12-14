@@ -14,7 +14,7 @@ import os
 import numpy as np
 # read data
 from jxu.data.loader import vhdr_load
-from jxu.data.audio_process import NIBSEEG
+from jxu.data.eeg_process import NIBSEEG
 from mne.time_frequency import psd_welch, psd_multitaper
 import numpy as np
 import pickle
@@ -29,8 +29,10 @@ ses_eeg.data_concat(cp_flag=True)
 
 ses_eeg.set_channels()
 ses_eeg.rereference('average')
-ses_eeg.raw_filter(l_freq=1, h_freq=70.0, notch=True, concat=True)
+ses_eeg.raw_filter(bands=[(1.0, 70.0)], notch=True)
 
+import pdb;pdb.set_trace()
+raw = ses_eeg.data[0]
 ica = ICA(n_components=120)
 ica.fit(raw)
 source = ica.get_sources(raw)
@@ -38,6 +40,7 @@ import pdb;pdb.set_trace()
 # img_s = source.plot(show=False)
 # img_prop = ica.plot_properties(raw, picks=18)
 img_comp = ica.plot_components(show=False)
+
 
 
 

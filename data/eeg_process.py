@@ -67,24 +67,25 @@ class NIBSEEG(NIBS):
 
         return self
 
-    def raw_filter(self):
+    def raw_filter(self, bands=None, notch=True):
         print('------- Start filtering-------')
-        if not hasattr(self, 'raw_data') or self.raw_data is None:
-            self.raw_load()
+        if not hasattr(self, 'raw_data_clean') or self.raw_data is None:
+            raise ValueError('Should pass concat. data to filter func')
 
-        self.filtered_data = []
+        if self.bands is None and bands is not None:
+            self.bands = bands
+
+        self.data = []
         for fmin, fmax in self.bands:
-            for _raw in self.raw_data:
-                _raw.set_channel_types({'Audio': 'stim', 'tACS': 'stim'})
-                raw_f = _raw.copy().filter(l_freq=fmin, h_freq=fmax,
-                                           verbose=False, **self.filter_para)
-                # method='fir', fir_design='firwin'
-                raw_f.notch_filter(freqs=np.arange(50, self.fs/2-1, 50),
-                                   picks='eeg')
-                # also apply filter for EOG channel
-                raw_f.set_channel_types({'EOG151': 'eog', 'EOG152': 'eog'})
+            import pdb;pdb.set_trace()
+            raw_f = self.raw_data_clean.copy().filter(
+                l_freq=fmin, h_freq=fmax, verbose=False, **self.filter_para)
 
-                self.filtered_data.append(raw_f)
+            if notch:
+                raw_f.notch_filter(freqs=np.arange(50, self.fs/2-1, 50),
+                                picks='eeg')
+
+            self.data.append(raw_f)
 
         return self
 
@@ -172,7 +173,7 @@ class NIBSEEG(NIBS):
         pass
 
 
-    def set_channels(self, bad_chn_list=[]):
+    def set_channels(self, reset=False, bad_chn_list=[]):
 
 
         try:
@@ -180,6 +181,11 @@ class NIBSEEG(NIBS):
             with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
                       'rb') as f_in:
                 bad_chn_list = pickle.load(f_in)
+
+            if reset:
+                print("Previous bad channels are:")
+                print(bad_chn_list)
+                raise FileNotFoundError
         except FileNotFoundError:
 
             assert self.raw_data[0].info['ch_names'], "Run set_montage() first"
