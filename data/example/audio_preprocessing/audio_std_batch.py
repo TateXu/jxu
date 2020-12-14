@@ -7,7 +7,7 @@
 # Description: Preload and standardise answer audio
 ##=============================================================================
 
-from jxu.data.preprocess import NIBSAudio
+from jxu.data.audio_process import NIBSAudio
 import numpy as np
 from matplotlib import pyplot as plt
 

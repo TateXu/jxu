@@ -14,7 +14,7 @@ import os
 import numpy as np
 # read data
 from jxu.data.loader import vhdr_load
-from jxu.data.preprocess import NIBSEEG
+from jxu.data.audio_process import NIBSEEG
 from mne.time_frequency import psd_welch, psd_multitaper
 import numpy as np
 import pickle

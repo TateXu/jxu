@@ -20,7 +20,7 @@ import mne
 import pdb
 
 from jxu.data.loader import vhdr_load
-from jxu.data.preprocess import NIBSEEG
+from jxu.data.eeg_process import NIBSEEG
 from mne.time_frequency import psd_welch, psd_multitaper
 import numpy as np
 import pickle
