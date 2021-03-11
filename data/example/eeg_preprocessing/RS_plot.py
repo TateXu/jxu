@@ -3,17 +3,12 @@
 # Blog       : www.jiachenxu.net
 # Time       : 2020-11-26 13:23:30
 # Name       : RS_plot.py
-# Version    : V1.0
-# Description: .
-#========================================
-
-
+# Version    : V1.0 # Description: .  #========================================
 from numpy.fft import fft, fftfreq
 from scipy import signal
 import matplotlib.pyplot as plt
 from itertools import product
 from mne.viz import plot_epochs_image
-import platform
 
 import mne
 
@@ -21,45 +16,11 @@ import pdb
 
 from jxu.data.loader import vhdr_load
 from jxu.data.eeg_process import NIBSEEG
+from jxu.data.utils import nibs_event_dict
+
 from mne.time_frequency import psd_welch, psd_multitaper
 import numpy as np
 import pickle
-
-bipolar_1 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/bipolar_1_1_a.vhdr")
-bipolar_2 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/bipolar_1_1_b.vhdr")
-bipolar_3 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/bipolar_1_2.vhdr")
-bipolar = mne.concatenate_raws([bipolar_1, bipolar_2, bipolar_3])
-
-noise_floor_1 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/noiseFloor_2.vhdr")
-noise_floor_2 = vhdr_load("/home/jxu/Group_share/projects/z010_noise_measurement/Hoerlgasse/noise/recordings/noiseFloor_3.vhdr")
-noise_floor = mne.concatenate_raws([noise_floor_1, noise_floor_2])
-
-bipolar.annotations.delete([1, 2, 3, 4, 5, 6])
-events_bp, events_id_bp = mne.events_from_annotations(bipolar)
-bp = mne.Epochs(bipolar, events_bp, event_id=99999, tmin=0.0, tmax=2438.7,
-                baseline=None, reject=None)
-
-noise_floor.annotations.delete([1, 2, 3])
-events_nf, events_id_nf = mne.events_from_annotations(noise_floor)
-nf_ep = mne.Epochs(noise_floor, events_nf, event_id=99999, tmin=0.0, tmax=921.2,
-                   baseline=None, picks=['Cz'], reject=None)
-
-fig, ax = plt.subplots(1, 1, figsize=(6, 2))
-#  aaa = nf_ep.plot_psd(fmax=225.0, color=False, show=False,ax=ax)
-import pdb;pdb.set_trace()
-# psd_list_3, freq_3 = psd_multitaper(bipolar, fmax=225.0, fmin=0.1 )
-# psd_list_4, freq_4 = psd_multitaper(noise_floor, fmax=225.0, fmin=0.1)
-# plt.plot(freq_3, np.log10(psd_list_3.T)*10, 'yellow')
-# plt.plot(freq_4, np.log10(psd_list_4[0].T)*10, 'red')
-# plt.legend([Bipolar', 'Noise_saline'])
-# import pdb;pdb.set_trace()
-
-with open('/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/example/eeg_preprocessing/nf_psd.pkl', 'rb') as f_out:
-    nf_psd, nf_freq = pickle.load(f_out)
-
-with open('/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/example/eeg_preprocessing/bp_psd.pkl', 'rb') as f_out:
-    bp_psd, bp_freq = pickle.load(f_out)
-
 
 fig_list = []
 ax_list = []
@@ -68,22 +29,46 @@ for i in range(6):
     fig_list.append(fig)
     ax_list.append(ax)
 
+when_list = ['pre', 'stim1', 'stim2', 'post', 'all']
+task_list = ['RS_close', 'RS_open',
+             'QA_trial', 'QA_audio', 'QA_ans', 'QA_rec', 'QA_cen_word',
+             'Arti_trial', 'Arti_action', 'Arti_rec']
+
 rs_list = ['open', 'close']
-stg_list = ['pre', 'post', 'pre&post']
+stg_list = ['pre', 'post', 'stim_1', 'stim_2', 'all']
+
+
+task = 'RS_close'
+
+_, evt_dict, _, _ = nibs_event_dict()
+try:
+    evt_id, _, tmin, tmax = evt_dict[task][0]
+except IndexError:
+    evt_id, _ = evt_dict[task][0]
+    print('==================================================================')
+    print('tmin and tmax are not available for currect task: ' + task)
+    print('==================================================================')
 
 for id_sj, subj in enumerate([1, 2, 3, 5, 6, 7, 8, 10]):
     for ses in range(4):
+
+        subj = 2
+        ses = 0
 
         ses_eeg = NIBSEEG(subject=subj, session=ses)
         ses_eeg.raw_load()
         ses_eeg.set_montage()
         ses_eeg.data_concat(cp_flag=True)
         events, event_id = mne.events_from_annotations(ses_eeg.raw_data_clean)
-        rs_open = mne.Epochs(ses_eeg.raw_data_clean, events, event_id=[32],
-                             tmin=0, tmax=180, picks=['Fz', 'Cz', 'Pz'],
+        import pdb;pdb.set_trace()
+
+#         ses_eeg.epoch(task=['RS_close', 'RS_open', 'QA_question', 'QA_answer'],
+#                       when=['all', 'pre', 'stim1', 'stim2', 'post'])
+        rs_open = mne.Epochs(ses_eeg.raw_data_clean, events, event_id=[evt_id],
+                             tmin=tmin, tmax=tmax, picks=['Fz', 'Cz', 'Pz'],
                              baseline=None)
         rs_close = mne.Epochs(ses_eeg.raw_data_clean, events, event_id=[34],
-                              tmin=0, tmax=180, picks=['Fz', 'Cz', 'Pz'],
+                              tmin=tmin, tmax=tmax, picks=['Fz', 'Cz', 'Pz'],
                               baseline=None)
 
         for id_stg, stage in enumerate(stg_list):

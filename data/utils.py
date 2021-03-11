@@ -124,14 +124,14 @@ def nibs_event_dict():
                 'Test': 253,
                 'Main': 254,
                 'End': 255,
-                'Pre_run': [2, 3],
-                'Post_run': [8, 9],
-                'Run': [4, 5],
-                'Block': [6, 7],
-                'Cali_intro': [10, 11],
-                'Cali_trial': [12, 13],
-                'Cali_display': [14, 15],
-                'Cali_ans': [16, 17],
+                'Pre_run': [2, 3, None],
+                'Post_run': [8, 9, None],
+                'Run': [4, 5, None],
+                'Block': [6, 7, None],
+                'Cali_intro': [10, 11, None],
+                'Cali_trial': [12, 13, None],
+                'Cali_display': [14, 15, None],
+                'Cali_ans': [16, 17, None],
                 'Cali_rec': [18, 19],
                 'Stim': [20, 21],
                 'Sham': [22, 23],
@@ -139,8 +139,8 @@ def nibs_event_dict():
                 'Fade_out': [26, 27],
                 'Stable_stim': [28, 29],
                 'RS_intro': [30, 31],
-                'RS_open': [32, 33],
-                'RS_close': [34, 35],
+                'RS_open': [32, 33, 0, 180],
+                'RS_close': [34, 35, 0, 180],
                 'QA_intro': [40, 41],
                 'QA_trial': [42, 43],
                 'QA_audio': [44, 45],
@@ -177,6 +177,128 @@ def insert_annot():
                                'duration': 0.001,
                                'description': 'Stimulus/S 42'}
     return insert_annot_list
+
+def bad_chn_loader(nr_subj, nr_ses):
+    no_gel = ['FC3', 'FFC5h', 'FCC5h', 'FFC3h', 'FCC3h', 'T7', 'FTT7h', 'TTP7h']
+    subject_list = {'test': [None, None, None, None],
+                    'TES': [
+                        {'extreme': ['FC1', 'CP5', 'FCC1h', 'CP5', 'C5', ''],
+                         'mild': ['C3', 'Fz', 'C1', 'TP7', 'TPP7h', 'AFF1h', 'AFF2h', 'FC5']},
+                        {'extreme': ['F3', 'P7', 'FC1', 'FC5', 'TP9', 'TPP7h', 'PPO9h', 'P9', 'PO9', 'TPP9h', 'POO9h'],
+                         'mild': ['C5', 'PO7']},
+                        {'extreme': ['C3', 'Fz', 'FC1', 'CP3', 'C5', 'FT7', 'TP7', 'CCP5h', 'FFT9h', 'FCC1h'],
+                         'mild': ['FC5', 'CPP3h', 'AFp1', 'AFp2']},
+                        {'extreme': ['FC1', 'TP7', 'FFC1h', 'FFC2h'],
+                         'mild': ['F3', 'C3', 'FC5', 'TPP7h', 'FCC1h', 'TPP9h', 'AFp1', 'AFp2']}
+                         ],
+                    'NUK': [
+                        {'extreme': ['Fz', 'C5', 'AFp1', 'AFp2', 'FFT7h'],
+                         'mild': ['C3', 'FC1', 'FC2', 'FC5', 'AF3', 'AF4', 'AFF1h', 'AFF2h', 'FFC1h', 'FFC2h']},
+                        {'extreme': ['C3', 'FC1', 'FC5'],
+                         'mild': ['F3', 'CP5', 'FT9', 'FT7', 'TP7', 'TPP7h', 'AFF1h', 'AFF2h']},
+                        {'extreme': ['F3', 'C3', 'FC1', 'FT7'],
+                         'mild': ['F7', 'FC5', 'AFF1h', 'AFF2h', 'FFC1h', 'AFp1', 'AFp2', 'FFT7h']},
+                        {'extreme': ['C3', 'FC1', 'FC5', 'FT7', 'AFF1h', 'AFF2h'],
+                         'mild': ['Fz', 'C5', 'TP7', 'FCC1h', 'AFp1', 'AFp2', 'CCP3h']}
+                        ],
+                    'OSA': [
+                        {'extreme': ['F3', 'C3', 'FC5', 'TP9', 'F5', 'TP7', 'TPP7h', 'AFF5h', 'TPP9h'],
+                         'mild': ['CPP5h']},  # Very noisy, HF noise are too much
+                        {'extreme': ['FC5', 'C5', 'TP7'],
+                         'mild': ['F3', 'C3', 'Cz', 'FC1', 'CP1', 'FT9', 'AFp2']},  # Even worse, nothing distinguishable
+                        {'extreme': ['C3', 'FC5', 'FC1', 'CP5', 'CP3', 'TP7', 'Fpz', 'FT7', 'FCC3h', 'FTT7h', 'CPP3h', 'AFp1', 'AFp2', 'FCC5h', 'FFT7h', 'TTP7h'],
+                         'mild': ['F5', 'C5', 'TPP7h']},
+                        {'extreme': ['F3', 'C3', 'FC5', 'FT9', 'TP9', 'FT7', 'TP7', 'CCP5h'],
+                         'mild': ['AFF5h', 'FFT7h']}
+                        ],
+                    'KNL': [
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']}
+                        ],
+                    'ZYC': [
+                        {'extreme': ['FC5', 'C5', 'TP7'],
+                         'mild': []},  # no use at all
+                        {'extreme': ['F3', 'FC1', 'FC5', 'FT9', 'F1', 'AF3', 'F5', 'AF7', 'FT7', 'Fpz', 'FFC1h', 'FFC2h', 'AFF1h', 'F9', 'AFp1', 'AFF5h', 'FFT7h', 'FFT9h'],
+                         'mild': []},
+                        {'extreme': ['F3', 'C3', 'FC1', 'FC5', 'CP3', 'FT7', 'P9'],
+                         'mild': ['Fz', 'C5', 'AFF1h', 'AFF2h', 'CCP5h', 'AFp1', 'AFp2']},
+                        {'extreme': ['C3', 'FC1', 'FT9', 'C1', 'C5', 'TP7', 'Fpz', 'AFF1h', 'AFF2h', 'CCP5h', 'AFp1', 'AFp2', 'FFT7h'],
+                         'mild': ['FFT9h', 'FFT10h']}
+                        ],
+                    'CCH': [
+                        {'extreme': ['FC3', 'C3', 'CP5', 'TP9', 'F5', 'C5', 'AF7', 'TP7', 'CCP5h', 'TPP7h', 'P9', 'AFF5h', 'TPP9h'],
+                         'mild': ['AF3', 'FFC2h']},
+                        {'extreme': ['F3', 'FC1', 'F1', 'TP7', 'FT7', 'TPP7h'],
+                         'mild': ['CP5', 'FT9', 'TP9', 'C5', 'FFC2h', 'TPP9h']},
+                        {'extreme': ['F3', 'FC5', 'F5', 'TP7', 'AFF5h'],
+                         'mild': ['FC1', 'C3', 'AFF1h', 'AFF2h', 'FFT7h']},
+                        {'extreme': ['F3', 'C3', 'FC1', 'TP7'],
+                         'mild': ['FC5', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2']}
+                        ],
+                    'DWS': [
+                        {'extreme': ['F3', 'FT7'],
+                         'mild': ['C3', 'Cz', 'FC5', 'FC1', 'TP7', 'C5', 'F5', 'P9', 'CCP5h']},
+                        {'extreme': ['C3', 'FC1', 'FT7'],
+                         'mild': ['FC5', 'TP7', 'CCP5h', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2', 'CCP3h']},
+                        {'extreme': ['C3', 'F3', 'FC1', 'FC5', 'C5', 'FT7', 'TP7'],
+                         'mild': ['TPP7h', 'AFF1h', 'AFF2h', 'CCP5h', 'AFp1', 'AFp2']},
+                        {'extreme': ['CP5', 'FC1', 'C5', 'FT7', 'TP7', 'TPP7h'],
+                         'mild': ['F3', 'C3', 'Fz', 'Cz', 'P5', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2', 'TPP9h']}
+                        ],
+                    'VQT': [
+                        {'extreme': ['F3', 'C3', 'FC1', 'AF3', 'F5', 'C5', 'FT7', 'AF7', 'TP7', 'TPP7h', 'AFF5h', 'TPP9h'],
+                         'mild': ['CP5', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2']},
+                        {'extreme': ['F3', 'C3', 'F5', 'FT7', 'AFF5h'],
+                         'mild': ['FC1', 'C1', 'FCC1h', 'CCP3h', 'AFF5h', 'FFT7h']},  # No alpha existed
+                        {'extreme': ['F3', 'C3', 'FC1', 'FC5', 'FT9', 'CP3', 'C5', 'FT7', 'TP7', 'CCP3h', 'CCP5h', 'FFT9h'],
+                         'mild': ['Fpz', 'AFF1h', 'AFF2h', 'CCP5h', 'AFp1', 'AFp2', 'FFT7h']},
+                        {'extreme': ['C3', 'C5', 'FT7', 'TP7', 'CCP5h'],
+                         'mild': ['FC1', 'CP5']}
+                        ],
+                    'BXB': [
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']}
+                        ],
+                    'BMC': [
+                        {'extreme': ['F3', 'FC5', 'C3', 'TP9', 'C5', 'FT7', 'TP7', 'CCP3h', 'AFp1', 'FFT9h'],
+                         'mild': ['AFF1h', 'AFF2h', 'FCC4h', 'AFp2']},  #  very bad quality
+                        {'extreme': ['F3', 'FC1', 'FT9', 'C5', 'AF7', 'FT7', 'TP7', 'FCC1h', 'FFT7h', 'AFF5h'],
+                         'mild': ['Fpz', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2']},
+                        {'extreme': ['F3', 'C3', 'F7', 'FC1', 'FT9', 'F1', 'AF3', 'F5', 'AF7', 'FT7', 'TP7', 'F9', 'AFF5h', 'FFT7h', 'FFT9h'],
+                         'mild': ['FC5', 'CP5', 'Fpz', 'AFF1h', 'AFF2h', 'CCP5h', 'TPP7h', 'AFp1', 'AFp2', 'CCP3h']},
+                        {'extreme': ['F3', 'FC1', 'FC5', 'CP5', 'FT9', 'F5', 'C5', 'FT7', 'CCP5h', 'F9', 'AFp1', 'AFp2', 'AFF5h', 'FFT7h', 'FFT9h'],
+                         'mild': ['Fpz', 'C1', 'AFF1h', 'AFF2h']}
+                        ],
+                    'ZWS': [
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']},
+                        {'extreme': ['', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                         'mild': ['', '', '', '', '', '', '', '', '', '', '', '', '', '']}
+                        ],
+                    }
+
+    subj_name = [*subject_list.keys()]
+    subject_list[subj_name[nr_subj]][nr_ses]['default'] = no_gel
+
+    return subject_list[subj_name[nr_subj]][nr_ses]
+
+
 
 
 def offset_loader(nr_subj, nr_ses):
@@ -217,8 +339,7 @@ def offset_loader(nr_subj, nr_ses):
                         None,
                         [(0.0, 1763.348),
                          (1848.182, 9215.900),
-                         (9306.119, None)
-                        ],
+                         (9306.119, None)],
                         None],
                     'CCH': [
                         [(808.900, 7608.055),
@@ -242,8 +363,7 @@ def offset_loader(nr_subj, nr_ses):
                         None,
                         None,
                         [(0.0, 4354.860),
-                         (4450.739, None)
-                        ]],
+                         (4450.739, None)]],
                     'BXB': [
                         None,
                         None,

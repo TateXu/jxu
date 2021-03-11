@@ -29,7 +29,7 @@ behavioral = loadmat(file_root + marker)
 label = np.squeeze(behavioral['pain_sub1_run1'][0, 0][0])
 onsettime = np.squeeze(behavioral['pain_sub1_run1'][0, 0][1])
 offtime = np.squeeze(behavioral['pain_sub1_run1'][0, 0][2])
-
+import pdb;pdb.set_trace()
 
 onset_slices = np.floor(onsettime/1200).astype('int16')
 off_slices = np.floor(offtime/1200).astype('int16')

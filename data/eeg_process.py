@@ -7,38 +7,26 @@
 # Description: Class for preprocessing EEG& Audio
 # ========================================
 
-from google.cloud import texttospeech
+import os
+import numpy as np
+from scipy import signal
+import warnings
+import pickle
+import pdb
+
+from itertools import product
+from copy import deepcopy
+
+import mne
+from mne import Epochs as mneEpoch
+from mne.viz import plot_epochs_image
+import matplotlib
+# matplotlib.use('TkAgg')
+
 from jxu.basiccmd.mycmd import create_folder
 from jxu.data.loader import vhdr_load
 from jxu.data.utils import nibs_event_dict
 from jxu.viz.utils import *
-import os
-import numpy as np
-from numpy.fft import fft, fftfreq
-from scipy import signal
-
-from itertools import product
-from mne.viz import plot_epochs_image
-import platform
-from copy import deepcopy
-
-from pydub import AudioSegment
-from pydub.playback import play as pd_play
-from jxu.audio.audiosignal import audio_denoise, wav_std
-from auditok import AudioRegion
-
-from scipy.io import wavfile # scipy library to read wav files
-import mne
-
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
-
-import warnings
-import pickle
-import argparse
-import pandas as pd
-import pdb
 from .utils import BaseEEG
 from .base import NIBS
 
@@ -75,25 +63,41 @@ class NIBSEEG(NIBS):
         if self.bands is None and bands is not None:
             self.bands = bands
 
-        self.data = []
+        if self.data is None:
+            print('-------- WARN: The common average is not removed! --------')
+            self.data = self.raw_data_clean.copy()
+            self.unfiltered_data = self.raw_data_clean.copy()
+        else:
+            self.unfiltered_data = self.data.copy()
+
+        tmp = []
         for fmin, fmax in self.bands:
-            import pdb;pdb.set_trace()
-            raw_f = self.raw_data_clean.copy().filter(
-                l_freq=fmin, h_freq=fmax, verbose=False, **self.filter_para)
+            raw_f = self.data.filter(
+                l_freq=fmin, h_freq=fmax, verbose=False, n_jobs=16)  #, **self.filter_para
 
             if notch:
                 raw_f.notch_filter(freqs=np.arange(50, self.fs/2-1, 50),
-                                picks='eeg')
+                                picks='eeg', n_jobs=16)
 
-            self.data.append(raw_f)
+            tmp.append(raw_f)
+
+        self.data = tmp
+        print('==============================================================')
+        print('--- Data preprocessing is done, below are the attrs ----------')
+        print('--------------------------------------------------------------')
+        print('--- Dirty (Compeletely) raw data: self.raw_data --------')
+        print('--- Clean raw data: self.raw_data_clean --------')
+        print('--- Filtered data: self.data ---------------')
+        print('--- Unfiltered data: self.unfiltered_data -----')
+        print('==============================================================')
 
         return self
 
     def get_data(self, filter_flag=True):
         if filter_flag:
-            if not hasattr(self, 'filtered_data') or self.filtered_data is None:
+            if not hasattr(self, 'unfiltered_data') or self.unfiltered_data is None:
                 self.raw_filter()
-            return self.filtered_data
+            return self.data
         else:
             if not hasattr(self, 'raw_data') or self.raw_data is None:
                 self.raw_load()
@@ -161,9 +165,17 @@ class NIBSEEG(NIBS):
                                  subjects_dir=subjects_dir, eeg=['projected'],
                                  surfaces=surfaces)
         elif axes == '2D' or axes=='topo':
-            self.raw_data[0].info.plot(kind='topomap', show_names=name)
+            import pdb;pdb.set_trace()
+            import mne
+            img = mne.viz.plot_sensors(self.raw_data_clean.info,
+                                       show_names=True, show=False)
+
+            self.layout_2d = img
         elif axes == 'xyz3D':
             self.raw_data[0].info.plot(kind='3d')
+
+
+        return self
 
     def set_trigger_list(self):
         pass
@@ -173,50 +185,67 @@ class NIBSEEG(NIBS):
         pass
 
 
-    def set_channels(self, reset=False, bad_chn_list=[]):
+    def set_channels(self, reset=False, bad_chn_list=[], bad_degree='extreme'):
+        from jxu.data.utils import bad_chn_loader
 
+        badchns = bad_chn_loader(self.subject, self.session)
 
-        try:
-            print('Try to load local chn list')
-            with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
-                      'rb') as f_in:
-                bad_chn_list = pickle.load(f_in)
+        if bad_degree == 'extreme':
+            pass
+        elif bad_degree == 'mild':
+            badchns.pop('extreme')
+        elif bad_degree == 'default':
+            for keys in ['extreme', 'mild']:
+                badchns.pop(keys)
+        else:
+            raise ValueError('incorrect bad_degree values')
 
-            if reset:
-                print("Previous bad channels are:")
-                print(bad_chn_list)
-                raise FileNotFoundError
-        except FileNotFoundError:
+        for val in badchns.values():
+            bad_chn_list.extend(val)
 
-            assert self.raw_data[0].info['ch_names'], "Run set_montage() first"
-            valid_chn_name = self.raw_data[0].info['ch_names']
+        # try:
+            # print('Try to load local chn list')
+            # with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
+                      # 'rb') as f_in:
+                # bad_chn_list = pickle.load(f_in)
 
-            if not bad_chn_list:
-                input_flag = 1
-                while input_flag:
-                    bad_chn_name = input("Please input the bad chn name or " +
-                                         " 0 -  finish input\n")
+            # if reset:
+                # print("Previous bad channels are:")
+                # print(bad_chn_list)
+                # raise FileNotFoundError
+        # except FileNotFoundError:
 
-                    if bad_chn_name == '0':
-                        input_flag = 0
-                    else:
-                        if bad_chn_name in valid_chn_name:
-                            bad_chn_list.append(bad_chn_name)
-                        else:
-                            print("Invalid chn name; All cap except h, Fp, XFp")
+            # assert self.raw_data[0].info['ch_names'], "Run set_montage() first"
+            # valid_chn_name = self.raw_data[0].info['ch_names']
 
-            with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
-                      'wb') as f_out:
-                pickle.dump(bad_chn_list, f_out)
+            # if not bad_chn_list:
+                # input_flag = 1
+                # while input_flag:
+                    # bad_chn_name = input("Please input the bad chn name or " +
+                                         # " 0 -  finish input\n")
+
+                    # if bad_chn_name == '0':
+                        # input_flag = 0
+                    # else:
+                        # if bad_chn_name in valid_chn_name:
+                            # bad_chn_list.append(bad_chn_name)
+                        # else:
+                            # print("Invalid chn name; All cap except h, Fp, XFp")
+
+            # with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
+                      # 'wb') as f_out:
+                # pickle.dump(bad_chn_list, f_out)
 
         self.bad_chn_list = bad_chn_list
-        self.bad_chn_dict = dict(zip(bad_chn_list, ['stim']*len(bad_chn_list)))
+        self.bad_chn_dict = dict(zip(bad_chn_list, ['bads']*len(bad_chn_list)))
 
         self.raw_data_clean.set_channel_types(
             {'Audio': 'stim', 'tACS': 'stim'})
         self.raw_data_clean.set_channel_types(
             {'EOG151': 'eog', 'EOG152': 'eog'})
-        self.raw_data_clean.set_channel_types(self.bad_chn_dict)
+        self.raw_data_clean.info['bads'] = [
+            'Audio', 'tACS', 'EOG151', 'EOG152'] + self.bad_chn_list
+        # self.raw_data_clean.set_channel_types(self.bad_chn_dict)
 
         return self
 
@@ -387,12 +416,46 @@ class NIBSEEG(NIBS):
 
         return self
 
-    def find_evt_loc(self, events, evt):
+    def find_evt_loc(self, events=None, evt=None, raw=None):
 
-        loc = np.where(events[:, 2] == evt)[0]
+        if events is None:
+            try:
+                print('Find event from raw file: Not using passed event')
+                events, event_id = mne.events_from_annotations(raw)
+            except:
+                print('Event matrix and raw file, at least one should be passed')
+                import pdb;pdb.set_trace()
+
+        if isinstance(evt, list):
+            loc = np.empty((0,), dtype=int)
+            for sg_evt in evt:
+                sg_loc = np.where(events[:, 2] == sg_evt)[0]
+                loc = np.append(loc, sg_loc)
+            loc = np.sort(loc)
+        else:
+            loc = np.where(events[:, 2] == evt)[0]
         ts_loc = events[loc, :]
 
         return loc, ts_loc
+
+    def data_seg(self, name=None, filtered_seg=0):
+
+        data = self.data[filtered_seg].copy()
+        loc, ts_loc = self.find_evt_loc(raw=data, evt=[32, 34])
+        if name == "whole":
+            return data
+        elif name == 'pre':
+            tmin = 0.0
+            tmax = ts_loc[2, 0] / 1000.0 - 1.0
+        elif name == 'stim':
+            tmin = ts_loc[2, 0] / 1000.0
+            tmax = ts_loc[6, 0] / 1000.0 - 1.0
+        elif name == 'post':
+            tmin = ts_loc[6, 0] / 1000.0
+            tmax = None
+
+        return data.crop(tmin=tmin, tmax=tmax)
+
 
     def trigger_detector(self, raw):
 
@@ -435,4 +498,27 @@ class NIBSEEG(NIBS):
 
 
         return self
+
+
+
+class NIBSEpoch(mneEpoch):
+    def __init__(raw, events, task='RS_close', when='all',
+                 *args, **kwargs):
+        self.task = task
+        self.when = when
+
+        when_list = ['pre', 'stim1', 'stim2', 'post', 'all']
+        task_list = ['RS_close', 'RS_open',
+                     'QA_trial', 'QA_audio', 'QA_ans', 'QA_rec', 'QA_cen_word',
+                     'Arti_trial', 'Arti_action', 'Arti_rec']
+
+        _, evt_dict, _, _ = nibs_event_dict()
+        loc_when = when_list.index(self.when)
+
+        evt_id = evt_dict[self.task][0]
+
+        return super().__init__(raw=raw, events=events, event_id=[evt_id],
+                                *args, **kwargs)
+
+
 

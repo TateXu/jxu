@@ -1,7 +1,5 @@
 #========================================
-# Author     : Jiachen Xu
-# Blog       : www.jiachenxu.net
-# Time       : 2020-11-27 13:40:41
+# Author     : Jiachen Xu # Blog       : www.jiachenxu.net # Time       : 2020-11-27 13:40:41
 # Name       : ICA_temp.py
 # Version    : V1.0
 # Description: .
@@ -19,9 +17,9 @@ filename = "/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/TES/Session_0/TES_seg_0.v
 full_raw = mne.io.read_raw_brainvision(filename, preload=True)
 
 import pdb;pdb.set_trace()
-raw = full_raw.crop(tmin=0.0, tmax=2.0)
+# raw = full_raw.crop(tmin=120.0, tmax=122.0)
 # plot raw data
-
+raw = full_raw.crop(tmin=0.0, tmax=2.0)
 # raw.plot()
 # raw.plot_psd(fmin=0, fmax=45)
 # determine bad channels
