@@ -22,8 +22,8 @@ import pickle
 from jxu.basiccmd.mycmd import create_folder
 
 
-subj = 5
-ses = 2
+subj = 2
+ses = 0
 ind = 0
 ses_eeg = NIBSEEG(subject=subj, session=ses)
 ses_eeg.raw_load()

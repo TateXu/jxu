@@ -16,6 +16,7 @@ from jxu.data.utils import nibs_event_dict
 
 import numpy as np
 import pickle
+import pandas as pd
 
 from mne.decoding import CSP
 from sklearn.model_selection import GridSearchCV
@@ -98,9 +99,26 @@ def score(clf, X, y, scoring):
     acc = cross_val_score(clf, X, y, cv=cv, scoring=scoring)
     return acc.mean()
 
+def data_to_df(epoch, label):
+
+    chn = epoch.info['ch_names']
+    # n_chn = len(epoch.info['ch_names'])
+    data = epoch.get_data()
+
+    df = pd.DataFrame(data[0], index=chn, columns=range(data.shape[2]))
+    df.index.name = 'Channel'
+
+    tmp = df.reset_index().melt(id_vars='Channel', var_name='Time', value_name='Amplitude')
+
+    return tmp.assign(label=[label]*len(tmp.index))
+
 if __name__ == "__main__":
+    import seaborn as sns
     for id_sj, subj in enumerate([2, 6, 7, 8, 10]):
         for ses in range(4):
+            subj = 2
+            ses = 3
+            fig, ax = plt.subplots(1,1, figsize=(206,4))
 
             ###########################################################################
             # Parameter Initialization
@@ -131,16 +149,15 @@ if __name__ == "__main__":
             eeg, epoch, X, y = load_data(subj, ses)
             import pdb;pdb.set_trace()
 
-            from mne.preprocessing import ICA
-            ica = ICA(method='infomax')
-            ica.fit(eeg)
-            source = ica.get_sources(eeg)
+            df_pre = data_to_df(epoch[0], 'pre')
+            df_post = data_to_df(epoch[3], 'post')
+            all_df = pd.concat([df_pre, df_post], axis=0)
+
             import pdb;pdb.set_trace()
-            # img_s = source.plot(show=False)
-            # img_prop = ica.plot_properties(raw, picks=18)
-            img_comp = ica.plot_components(show=False, picks='all')
 
-
+            tax = sns.barplot(x='Channel', y='Amplitude', hue='label',
+                              data=all_df, ax=ax)
+            tax.figure.savefig('bar_.jpg')
             eeg.raw_data_clean.drop_channels(eeg.raw_data_clean.info['bads'])
             info = eeg.raw_data_clean.info
             for name, clf in pipelines.items():
