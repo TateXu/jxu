@@ -62,7 +62,6 @@ class NIBS():
         self.subj_nr = deepcopy(self.subject)
         self.ses_nr = deepcopy(self.session)
         self.eeg_folder = '{0}/Session_{1}/'.format(self.subj_id, str(int(self.ses_nr)))
-        import pdb;pdb.set_trace() 
         self.audio_folder = self.root + '{0}/Audio/Session_{1}/Exp_data/All/'.format(
             self.subj_id, str(int(self.ses_nr)).zfill(2))
 

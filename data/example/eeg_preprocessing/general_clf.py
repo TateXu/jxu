@@ -114,11 +114,10 @@ def data_to_df(epoch, label):
 
 if __name__ == "__main__":
     import seaborn as sns
-    for id_sj, subj in enumerate([2, 6, 7, 8, 10]):
+    for id_sj, subj in enumerate([1, 2, 5, 6, 7, 8, 10]):
         for ses in range(4):
-            subj = 2
-            ses = 3
-            fig, ax = plt.subplots(1,1, figsize=(206,4))
+            if subj == 1 and ses == 0:
+                continue
 
             ###########################################################################
             # Parameter Initialization
@@ -147,34 +146,36 @@ if __name__ == "__main__":
                 opt_SVM)
 
             eeg, epoch, X, y = load_data(subj, ses)
-            import pdb;pdb.set_trace()
+            y = y.ravel()
+            stim_freq = eeg.subject_list[[*eeg.subject_list.keys()][eeg.subject]][eeg.session]
 
+            eeg.raw_data_clean.drop_channels(eeg.raw_data_clean.info['bads'])
+            info = eeg.raw_data_clean.info
+            single_csp = CSP(n_components=nr_comp, reg='oas')
+            single_csp.fit_transform(X, y)
+            csp_fig = single_csp.plot_patterns(info, show=False, title='S{0}_Ses{1}_{2}Hz'.format(str(subj), str(ses), str(stim_freq)))
+            csp_fig.savefig('./classification/csp_img/S{0}_Ses{1}_{2}Hz.jpg'.format(str(subj), str(ses), str(stim_freq)))
+
+
+            # ----------- Get sensor plot --------------------
+
+            fig, ax = plt.subplots(1,1, figsize=(206,4))
             df_pre = data_to_df(epoch[0], 'pre')
             df_post = data_to_df(epoch[3], 'post')
             all_df = pd.concat([df_pre, df_post], axis=0)
-
-            import pdb;pdb.set_trace()
-
             tax = sns.barplot(x='Channel', y='Amplitude', hue='label',
                               data=all_df, ax=ax)
-            tax.figure.savefig('bar_.jpg')
-            eeg.raw_data_clean.drop_channels(eeg.raw_data_clean.info['bads'])
-            info = eeg.raw_data_clean.info
+            tax.set_title('Pre vs Post: S{0}_Ses{1}_{2}Hz'.format(str(subj), str(ses), str(stim_freq)))
+            tax.figure.savefig('./classification/sensor_barplot/S{0}_Ses{1}_{2}Hz.jpg'.format(str(subj), str(ses), str(stim_freq)))
+
+            acc = []
             for name, clf in pipelines.items():
-                acc = score(clf, X, y, scoring='roc_auc')
-                import pdb;pdb.set_trace()
+                acc_tmp = score(clf, X, y, scoring='roc_auc')
+                acc.append(acc_tmp)
                 print('------------------------------------------------------')
                 print('S{0}-Ses{1}-{2}: {3}'.format(str(subj), str(ses),
                                                     name, str(acc)))
                 print('------------------------------------------------------')
-            import pdb;pdb.set_trace()
-    import pdb;pdb.set_trace()
-    for i in range(6):
-        rs, st = divmod(i, 3)
-
-        fig_list[i].tight_layout()
-        fig_list[i].savefig('RS_{0}_{1}.jpg'.format(
-            rs_list[rs], stg_list[st]))
-    plt.show()
-    import pdb;pdb.set_trace()
+            with open('./classification/accuracy/S{0}_Ses{1}_{2}Hz.pkl'.format(str(subj), str(ses), str(stim_freq)), 'wb') as f:
+                pickle.dump(acc, f)
 
