@@ -134,13 +134,12 @@ class NIBSEEG(NIBS):
 
     # -------- META info setting ------
 
-    def set_montage(self):
+    def set_montage(self, montage_file='/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/BC-TMS-128.bvef'):
         if self.bad_chn_list is not None:
             bad_chn_dict = dict.fromkeys(self.bad_chn_list, 'stim')
         else:
             bad_chn_dict = None
-        montage = mne.channels.read_custom_montage(
-            '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/BC-TMS-128.bvef')
+        montage = mne.channels.read_custom_montage(montage_file)
         for temp_data in self.raw_data:
             temp_data.set_montage(montage)
             if bad_chn_dict is not None:

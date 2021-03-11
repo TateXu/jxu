@@ -7,7 +7,6 @@
 # Description: Class for preprocessing EEG& Audio
 # ========================================
 
-from google.cloud import texttospeech
 from jxu.basiccmd.mycmd import create_folder
 from jxu.data.loader import vhdr_load
 from jxu.data.utils import nibs_event_dict
@@ -22,16 +21,9 @@ from mne.viz import plot_epochs_image
 import platform
 from copy import deepcopy
 
-from pydub import AudioSegment
-from pydub.playback import play as pd_play
-from jxu.audio.audiosignal import audio_denoise, wav_std
-from auditok import AudioRegion
-
-from scipy.io import wavfile # scipy library to read wav files
 import mne
 
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import warnings
@@ -70,6 +62,7 @@ class NIBS():
         self.subj_nr = deepcopy(self.subject)
         self.ses_nr = deepcopy(self.session)
         self.eeg_folder = '{0}/Session_{1}/'.format(self.subj_id, str(int(self.ses_nr)))
+        import pdb;pdb.set_trace() 
         self.audio_folder = self.root + '{0}/Audio/Session_{1}/Exp_data/All/'.format(
             self.subj_id, str(int(self.ses_nr)).zfill(2))
 
