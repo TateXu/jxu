@@ -58,12 +58,12 @@ except ValueError:
     print('==================================================================')
 
 for data in ['RS', 'all']:
-    for id_sj, subj in enumerate([1, 2, 3, 5, 6, 7, 8, 10]):
-        for ses in range(4):
-            if subj < 10:
-                continue
-            elif subj == 10 and ses < 1:
-                continue
+    # for id_sj, subj in enumerate([1, 2, 3, 5, 6, 7, 8, 10]):
+        # for ses in range(4):
+
+    rerun_list = [(2, 1), (2, 2), (6, 1), (7, 2)]
+    for i in range(1):
+        for subj, ses in rerun_list:
             # if subj == 1 and ses == 0:
             #    continue
             # try:
@@ -106,12 +106,10 @@ for data in ['RS', 'all']:
             with open('./ICA_related/fitted_obj/S{0}_Ses{1}_{2}.pkl'.format(
                     str(subj), str(ses), data), 'wb') as f:
                 pickle.dump(ica, f)
-      #       except:
                 # with open("./ICA_related/bug_report_S{0}_Ses{1}_{2}.txt".format(
                         # str(subj), str(ses), data), "w") as text_file:
                     # print("Stopped", file=text_file)
 
-      #           continue
+    import pdb;pdb.set_trace()
 
-import pdb;pdb.set_trace()
 

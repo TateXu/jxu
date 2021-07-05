@@ -114,11 +114,15 @@ def data_to_df(epoch, label):
 
 if __name__ == "__main__":
     import seaborn as sns
-    for id_sj, subj in enumerate([1, 2, 5, 6, 7, 8, 10]):
-        for ses in range(4):
-            if subj == 1 and ses == 0:
-                continue
+    import gc
+#     for id_sj, subj in enumerate([2, 3, 5, 6, 7, 8, 10]):
+        # for ses in range(4):
+            # if subj == 1 and ses < 3:
+                # continue
 
+    rerun_list = [(2, 1), (2, 2), (6, 1), (7, 2)]
+    for i in range(1):
+        for subj, ses in rerun_list:
             ###########################################################################
             # Parameter Initialization
             # ------------------------
@@ -151,11 +155,13 @@ if __name__ == "__main__":
 
             eeg.raw_data_clean.drop_channels(eeg.raw_data_clean.info['bads'])
             info = eeg.raw_data_clean.info
-            single_csp = CSP(n_components=nr_comp, reg='oas')
-            single_csp.fit_transform(X, y)
-            csp_fig = single_csp.plot_patterns(info, show=False, title='S{0}_Ses{1}_{2}Hz'.format(str(subj), str(ses), str(stim_freq)))
-            csp_fig.savefig('./classification/csp_img/S{0}_Ses{1}_{2}Hz.jpg'.format(str(subj), str(ses), str(stim_freq)))
-
+            try:
+                single_csp = CSP(n_components=nr_comp, reg='oas')
+                single_csp.fit_transform(X, y)
+                csp_fig = single_csp.plot_patterns(info, show=False, title='S{0}_Ses{1}_{2}Hz'.format(str(subj), str(ses), str(stim_freq)))
+                csp_fig.savefig('./classification/csp_img/S{0}_Ses{1}_{2}Hz.jpg'.format(str(subj), str(ses), str(stim_freq)))
+            except:
+                pass
 
             # ----------- Get sensor plot --------------------
 
@@ -168,14 +174,28 @@ if __name__ == "__main__":
             tax.set_title('Pre vs Post: S{0}_Ses{1}_{2}Hz'.format(str(subj), str(ses), str(stim_freq)))
             tax.figure.savefig('./classification/sensor_barplot/S{0}_Ses{1}_{2}Hz.jpg'.format(str(subj), str(ses), str(stim_freq)))
 
-            acc = []
-            for name, clf in pipelines.items():
-                acc_tmp = score(clf, X, y, scoring='roc_auc')
-                acc.append(acc_tmp)
-                print('------------------------------------------------------')
-                print('S{0}-Ses{1}-{2}: {3}'.format(str(subj), str(ses),
-                                                    name, str(acc)))
-                print('------------------------------------------------------')
+            try:
+                acc = []
+                for name, clf in pipelines.items():
+                    acc_tmp = score(clf, X, y, scoring='roc_auc')
+                    acc.append(acc_tmp)
+            except:
+                pass
+            print('------------------------------------------------------')
+            print('S{0}-Ses{1}-{2}: {3}'.format(str(subj), str(ses),
+                                                name, str(acc)))
+            print('------------------------------------------------------')
             with open('./classification/accuracy/S{0}_Ses{1}_{2}Hz.pkl'.format(str(subj), str(ses), str(stim_freq)), 'wb') as f:
                 pickle.dump(acc, f)
+            del eeg
+            del single_csp
+            del df_pre
+            del df_post
+            del all_df
+            del tax
+            del fig
+            del csp_fig
+            del ax
+
+            gc.collect()
 

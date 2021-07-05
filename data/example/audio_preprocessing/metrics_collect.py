@@ -7,7 +7,7 @@
 # Description: collect performance data from session specific pickle file
 ##=============================================================================
 
-from jxu.data.preprocess import NIBSAudio
+from jxu.data.audio_process import NIBSAudio
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -47,6 +47,7 @@ col_name = [('META_INFO', 'subject'),
 file_root = '/home/jxu/File/Data/NIBS/Stage_one/EEG/Exp/Data/'
 dataframe_path = file_root + 'all_metric_df.pkl'
 
+import pdb;pdb.set_trace()
 try:
     all_metric_df = pd.read_pickle(dataframe_path)
 except FileNotFoundError:

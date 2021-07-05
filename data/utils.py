@@ -182,7 +182,7 @@ def bad_chn_loader(nr_subj, nr_ses):
     no_gel = ['FC3', 'FFC5h', 'FCC5h', 'FFC3h', 'FCC3h', 'T7', 'FTT7h', 'TTP7h']
     subject_list = {'test': [None, None, None, None],
                     'TES': [
-                        {'extreme': ['FC1', 'CP5', 'FCC1h', 'CP5', 'C5', ''],
+                        {'extreme': ['FC1', 'CP5', 'FCC1h', 'CP5', 'C5'],
                          'mild': ['C3', 'Fz', 'C1', 'TP7', 'TPP7h', 'AFF1h', 'AFF2h', 'FC5']},
                         {'extreme': ['F3', 'P7', 'FC1', 'FC5', 'TP9', 'TPP7h', 'PPO9h', 'P9', 'PO9', 'TPP9h', 'POO9h'],
                          'mild': ['C5', 'PO7']},
@@ -194,9 +194,9 @@ def bad_chn_loader(nr_subj, nr_ses):
                     'NUK': [
                         {'extreme': ['Fz', 'C5', 'AFp1', 'AFp2', 'FFT7h'],
                          'mild': ['C3', 'FC1', 'FC2', 'FC5', 'AF3', 'AF4', 'AFF1h', 'AFF2h', 'FFC1h', 'FFC2h']},
-                        {'extreme': ['C3', 'FC1', 'FC5'],
+                        {'extreme': ['C3', 'FC1', 'FC5', 'P9'],
                          'mild': ['F3', 'CP5', 'FT9', 'FT7', 'TP7', 'TPP7h', 'AFF1h', 'AFF2h']},
-                        {'extreme': ['F3', 'C3', 'FC1', 'FT7'],
+                        {'extreme': ['F3', 'C3', 'FC1', 'FT7', 'F9', 'FFT9h', 'FT9'],
                          'mild': ['F7', 'FC5', 'AFF1h', 'AFF2h', 'FFC1h', 'AFp1', 'AFp2', 'FFT7h']},
                         {'extreme': ['C3', 'FC1', 'FC5', 'FT7', 'AFF1h', 'AFF2h'],
                          'mild': ['Fz', 'C5', 'TP7', 'FCC1h', 'AFp1', 'AFp2', 'CCP3h']}
@@ -234,7 +234,7 @@ def bad_chn_loader(nr_subj, nr_ses):
                     'CCH': [
                         {'extreme': ['FC3', 'C3', 'CP5', 'TP9', 'F5', 'C5', 'AF7', 'TP7', 'CCP5h', 'TPP7h', 'P9', 'AFF5h', 'TPP9h'],
                          'mild': ['AF3', 'FFC2h']},
-                        {'extreme': ['F3', 'FC1', 'F1', 'TP7', 'FT7', 'TPP7h'],
+                        {'extreme': ['F3', 'FC1', 'F1', 'TP7', 'FT7', 'TPP7h', 'TP10', 'FC5'],
                          'mild': ['CP5', 'FT9', 'TP9', 'C5', 'FFC2h', 'TPP9h']},
                         {'extreme': ['F3', 'FC5', 'F5', 'TP7', 'AFF5h'],
                          'mild': ['FC1', 'C3', 'AFF1h', 'AFF2h', 'FFT7h']},
@@ -246,7 +246,7 @@ def bad_chn_loader(nr_subj, nr_ses):
                          'mild': ['C3', 'Cz', 'FC5', 'FC1', 'TP7', 'C5', 'F5', 'P9', 'CCP5h']},
                         {'extreme': ['C3', 'FC1', 'FT7'],
                          'mild': ['FC5', 'TP7', 'CCP5h', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2', 'CCP3h']},
-                        {'extreme': ['C3', 'F3', 'FC1', 'FC5', 'C5', 'FT7', 'TP7'],
+                        {'extreme': ['C3', 'F3', 'FC1', 'FC5', 'C5', 'FT7', 'TP7', 'AF8'],
                          'mild': ['TPP7h', 'AFF1h', 'AFF2h', 'CCP5h', 'AFp1', 'AFp2']},
                         {'extreme': ['CP5', 'FC1', 'C5', 'FT7', 'TP7', 'TPP7h'],
                          'mild': ['F3', 'C3', 'Fz', 'Cz', 'P5', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2', 'TPP9h']}
@@ -276,7 +276,7 @@ def bad_chn_loader(nr_subj, nr_ses):
                          'mild': ['AFF1h', 'AFF2h', 'FCC4h', 'AFp2']},  #  very bad quality
                         {'extreme': ['F3', 'FC1', 'FT9', 'C5', 'AF7', 'FT7', 'TP7', 'FCC1h', 'FFT7h', 'AFF5h'],
                          'mild': ['Fpz', 'AFF1h', 'AFF2h', 'AFp1', 'AFp2']},
-                        {'extreme': ['F3', 'C3', 'F7', 'FC1', 'FT9', 'F1', 'AF3', 'F5', 'AF7', 'FT7', 'TP7', 'F9', 'AFF5h', 'FFT7h', 'FFT9h'],
+                        {'extreme': ['F3', 'C3', 'C5', 'F7', 'FC1', 'FT9', 'F1', 'AF3', 'F5', 'AF7', 'FT7', 'TP7', 'F9', 'AFF5h', 'FFT7h', 'FFT9h'],
                          'mild': ['FC5', 'CP5', 'Fpz', 'AFF1h', 'AFF2h', 'CCP5h', 'TPP7h', 'AFp1', 'AFp2', 'CCP3h']},
                         {'extreme': ['F3', 'FC1', 'FC5', 'CP5', 'FT9', 'F5', 'C5', 'FT7', 'CCP5h', 'F9', 'AFp1', 'AFp2', 'AFF5h', 'FFT7h', 'FFT9h'],
                          'mild': ['Fpz', 'C1', 'AFF1h', 'AFF2h']}
@@ -305,7 +305,7 @@ def offset_loader(nr_subj, nr_ses):
 
     subject_list = {'test': [None, None, None, None],
                     'TES': [
-                        [(843.954, 7576.426),
+                        [(843.954, 7364.600),
                          (7576.427, 8752.739),
                          (8752.740, None)],
                         None,

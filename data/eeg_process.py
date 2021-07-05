@@ -72,7 +72,7 @@ class NIBSEEG(NIBS):
 
         tmp = []
         for fmin, fmax in self.bands:
-            raw_f = self.data.filter(
+            raw_f = self.data.copy().filter(
                 l_freq=fmin, h_freq=fmax, verbose=False, n_jobs=16)  #, **self.filter_para
 
             if notch:
@@ -147,8 +147,11 @@ class NIBSEEG(NIBS):
 
         return self
 
-    def get_montage(self):
-        return prinz('use plot_montage() to plot the electrodes location')
+    def get_montage(self, montage_file='/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/data/BC-TMS-128.bvef'):
+
+        montage = mne.channels.read_custom_montage(montage_file)
+
+        return montage
 
     def plot_montage(self, axes='mlab3D', name=False, surfaces='head'):
 
@@ -202,6 +205,8 @@ class NIBSEEG(NIBS):
         for val in badchns.values():
             bad_chn_list.extend(val)
 
+        bad_chn_list = list(set(bad_chn_list))
+
         # try:
             # print('Try to load local chn list')
             # with open(self.root + self.eeg_folder + 'bad_chn_list.pkl',
@@ -238,15 +243,19 @@ class NIBSEEG(NIBS):
         self.bad_chn_list = bad_chn_list
         self.bad_chn_dict = dict(zip(bad_chn_list, ['bads']*len(bad_chn_list)))
 
-        self.raw_data_clean.set_channel_types(
-            {'Audio': 'stim', 'tACS': 'stim'})
-        self.raw_data_clean.set_channel_types(
-            {'EOG151': 'eog', 'EOG152': 'eog'})
-        self.raw_data_clean.info['bads'] = [
-            'Audio', 'tACS', 'EOG151', 'EOG152'] + self.bad_chn_list
-        # self.raw_data_clean.set_channel_types(self.bad_chn_dict)
+        try:
 
-        return self
+            self.raw_data_clean.set_channel_types(
+                {'Audio': 'stim', 'tACS': 'stim'})
+            self.raw_data_clean.set_channel_types(
+                {'EOG151': 'eog', 'EOG152': 'eog'})
+            self.raw_data_clean.info['bads'] = [
+                'Audio', 'tACS', 'EOG151', 'EOG152'] + self.bad_chn_list
+            # self.raw_data_clean.set_channel_types(self.bad_chn_dict)
+            return self
+        except:
+            return self.bad_chn_list
+
 
 
     def get_bad_channels(self):
