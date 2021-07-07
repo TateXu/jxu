@@ -27,6 +27,8 @@ def ind_convert(x, subj_list, stim_list, IC_list):
     return IC_list[IC], subj_list[subj], stim_list[stim]
 
 path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/Processed/RS_epoch/'
+
+fig_root = '/home/jxu/File/Data/jxu_results/data/example/eeg_preprocessing/source_local_tuning_para/'
 # sobi_suffix = ''
 sobi_suffix = '_BP(3-70)'
 
@@ -55,6 +57,7 @@ else:
     elif sobi_suffix == '_BP(3-70)':
         IC_list = [17, 18, 20, 46, 52, 57, 67, 76, 80, 97, 98, 104,
                    107, 109, 115]
+        # MI related: 18, 20, 98
 
     n_comp = len(IC_list)
     diff_all_df = diff_all_df.loc[diff_all_df['IC'].isin(IC_list)]
@@ -84,8 +87,11 @@ load_topo = True
 scatter_heatmap_plot = False
 psd_plot = False
 topo_spec_plot = False
-source_local_plot = True
-psd_source_cluster_plot = True
+
+tuning_sl_paras_plot = True
+source_local_plot = False
+psd_source_cluster_plot = False
+
 
 individual_topo_sl_plot = False
 for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all_spectra'
@@ -187,6 +193,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 feat_mat = pickle.load(f)
 
         # featmat is the feature matrix of shape #comp *#subj * #stim *len_feat
+        assert len(IC_list) == feat_mat.shape[0], 'For updating IC list, feat should be regenerate'
         len_obs = np.product(feat_mat.shape[:3])
         len_feat = np.product(feat_mat.shape[3:])
 
@@ -435,6 +442,11 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             except:
                 import pdb;pdb.set_trace()
 
+            fig.tight_layout()
+            fig.savefig('{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
+
+
+
         if scatter_heatmap_plot:
             ncol = 6
             if not 'ax_tsne ' in vars() and not 'ax_tsne' in globals():
@@ -518,13 +530,24 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
         if topo_spec_plot:
 
             nr_comp = len(IC_list)
-            width_ratios = [10, 2, 18]
-            width_ratios.extend([18] * n_clusters)
-            height_ratios = [10] * nr_comp
+            width_ratios = [5, 1, 9]
+            width_ratios.extend([9] * n_clusters)
+            height_ratios = [5] * nr_comp
+
+            max_pixel = max(sum(width_ratios), sum(height_ratios))
+            if max_pixel * 200 > 2**16:
+                down_ratio = np.ceil(max_pixel * 200 / 2**16)
+            else:
+                down_ratio = 1
+
+            width_ratios /= down_ratio
+            height_ratios /= down_ratio
+
             len_w = len(width_ratios)
             len_h = len(height_ratios)
 
             fig_spectopo = plt.figure(figsize=(sum(width_ratios), sum(height_ratios)))
+            import pdb;pdb.set_trace()
             gs = gridspec.GridSpec(len(height_ratios), len(width_ratios),
                                    height_ratios=height_ratios,
                                    width_ratios=width_ratios)
@@ -540,7 +563,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
                 im_tmp = topo(select_A[:, IC], info,
                               axes=ax_spectopo[id_IC][0], show=False)
-                fig.colorbar(im_tmp[0], cax=ax_spectopo[id_IC][1],
+                fig_spectopo.colorbar(im_tmp[0], cax=ax_spectopo[id_IC][1],
                              orientation='vertical')
                 ax_spectopo[id_IC][0].set_title(
                     'IC_{0}'.format(str(IC_list[id_IC])))
@@ -552,6 +575,8 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 print(id_IC)
 
             for id_label, label_val in enumerate(label_set):
+
+                print(id_label)
                 ind = np.where(all_labels == label_val)[0]
                 tmp = list(
                     map(lambda x: ind_convert(x, subj_list=subj_list,
@@ -565,27 +590,98 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 for id_IC, IC in enumerate(IC_list):
                     IC_df = subset_df.loc[subset_df['IC'] == IC].copy()
                     sns.lineplot(x='freq_val', y='diff_val', hue='stim_freq',
-                                data=IC_df, ax=ax_spectopo[id_IC, id_label + 3], palette="tab10")
+                                 data=IC_df, ax=ax_spectopo[id_IC, id_label + 3], palette="tab10")
                     ax_spectopo[id_IC, id_label + 3].set_title('IC {0} Cluster {1}'.format(str(IC), str(label_val)))
+            fig_spectopo.tight_layout()
+            fig_spectopo.savefig(fig_root+'Spectopo_{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
 
-                print(id_label)
+            import pdb;pdb.set_trace()
+
 
         if source_local_plot:
             from jxu.model.source_localization.IC_source_localize import spatial_pattern_to_source as SP2S
+            # IC_list = [18, 20, 98]
 
             label = ['IC_' + str(i) for i in IC_list]
             rownames = ['Cluster_' + str(i) for i in range(4) ]
             all_IC = select_A[:, IC_list]
 
             # For generaling individual IC source local.
-#             SP2S(IC=all_IC, IC_label=label, save_plot=True,
-#                  separate_plot=True, picks=bads, prefix='')
+            # sl_paras = {'depth': [0.2, 0.4, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6],
+            sl_paras = {'depth': [6.4, 8.0, 9.6, 12.8, 16.0, 20, 25, 30, 40, 60],
+                        'loose': [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]}
+            SP2S(IC=all_IC, IC_label=label, save_plot=True,
+                 separate_plot=True, picks=bads, prefix=fig_root,
+                 tuning_paras=sl_paras)
+            import pdb;pdb.set_trace()
             weights_mat = ic_cluster / 32.0
             for i in range(4):
                 prefix = 'Cluster_' + str(i)
                 SP2S(IC=all_IC, IC_label=label, save_plot=True,
                      separate_plot=False, weights=weights_mat[i], picks=bads,
-                     prefix=prefix)
+                     prefix=fig_root+prefix)
+
+        if tuning_sl_paras_plot:
+            from itertools import product
+
+            # IC_list = [18, 20, 98]
+            # each_label = IC_list[2]
+            for each_label in IC_list:
+
+                # sl_paras = {'depth': [1.6, 2.4, 3.2, 4.0, 4.8, 5.6],
+
+                sl_paras = {'depth': [0.2, 0.4, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8,
+                                      5.6, 6.4, 8.0, 9.6, 12.8, 16.0, 20, 25,
+                                      30, 40, 60],
+                            'loose': [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]}
+                prefix = fig_root
+
+                width_ratios = [5]
+                width_ratios.extend([10] * len(sl_paras['loose']))
+                height_ratios = [5]
+                height_ratios.extend([5] * 2 * len(sl_paras['depth']))
+                len_w = len(width_ratios)
+                len_h = len(height_ratios)
+
+                fig_sl_tune = plt.figure(figsize=(sum(width_ratios), sum(height_ratios)))
+                gs = gridspec.GridSpec(len(height_ratios), len(width_ratios),
+                                    height_ratios=height_ratios,
+                                    width_ratios=width_ratios)
+                ax_sl_tune = np.empty((len_h, len_w), dtype='object')
+                for i in range(len_h):
+                    for j in range(len_w):
+                        if divmod(i, 2)[1] != 0 and j == 0:  # only for odd rows
+                            ax_sl_tune[i, j] = fig_sl_tune.add_subplot(gs[i:i+2, j])
+                            ax_sl_tune[i+1, j] = None
+                            continue
+                        ax_sl_tune[i, j] = fig_sl_tune.add_subplot(gs[i, j])
+
+                im_tmp = topo(select_A[:, each_label], info, axes=ax_sl_tune[0, 0],
+                            show=False)
+                ax_sl_tune[0, 0].set_title(f'IC_{str(each_label)}')
+
+                assert [*sl_paras.keys()] == ['depth', 'loose'], 'Paras only allowed depth and loose'
+                for ind, (depth, loose) in enumerate(product(*sl_paras.values())):
+                    id_depth, id_loose = divmod(ind, len(sl_paras['loose']))
+                    para_suffix = f'depth_{depth}_loose_{loose}'
+                    for id_view, view in enumerate(['lateral', 'medial']):
+                        print(f'{ind}_{depth}_{loose}')
+                        data = plt.imread(f'{prefix}_IC_{each_label}_{view}_{para_suffix}.jpg')
+                        ax_sl_tune[id_depth * 2 + id_view + 1, id_loose + 1].imshow(data)
+                        ax_sl_tune[id_depth * 2 + id_view + 1, id_loose + 1].set_title(f'{view}')
+
+                for i, depth in enumerate(sl_paras['depth']):
+                    ax_sl_tune[i*2+1, 0].text(x=0.3, y=0.5, s=f'Depth_{depth}', fontsize=30)
+                    # ax_sl_tune[i*2+1, 0].set_axis_off()
+                    ax_sl_tune[i*2+2, 0].set_axis_off()
+
+                for j, loose in enumerate(sl_paras['loose']):
+                    ax_sl_tune[0, j+1].text(x=0.45, y=0.5, s=f'Loose_{loose}', fontsize=30)
+                    # ax_sl_tune[0, j+1].set_axis_off()
+                fig_sl_tune.tight_layout()
+                fig_sl_tune.savefig(f'IC_{each_label}.jpg')
+            import pdb;pdb.set_trace()
+
 
         if psd_source_cluster_plot:
             assert source_local_plot, 'Must regenerate Cluster source estimate'
@@ -723,11 +819,6 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             import pdb;pdb.set_trace()
 
 
-        fig.tight_layout()
-        fig.savefig('{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
-
-        fig_spectopo.tight_layout()
-        fig_spectopo.savefig('Spectopo_{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
         # import pdb;pdb.set_trace()
 import pdb;pdb.set_trace()
 

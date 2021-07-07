@@ -12,8 +12,8 @@ import warnings
 
 def spatial_pattern_to_source(IC=None, IC_label=None, hemi='split',
                               weights=None, separate_plot=True,
-                              save_plot=False, prefix='Cluster1',
-                              picks=None):
+                              save_plot=False, prefix='Cluster',
+                              picks=None, tuning_paras=None):
 
     # separate_plot= True -> each IC one fig, False: ,merged plot for all IC
     # based on the weights
@@ -67,19 +67,40 @@ def spatial_pattern_to_source(IC=None, IC_label=None, hemi='split',
         epochs.pick(picks='eeg').drop_channels(picks)
     evoked = epochs['44'].average()  # trigger 1 in auditory/left
 
-    # cov = IC.T.dot(IC)
-    cov = mne.compute_covariance(epochs, tmax=0., method=['shrunk', 'empirical'], rank=None, verbose=True)
-    cov.update(data=np.eye(cov.data.shape[0]))
-    inv = mne.minimum_norm.make_inverse_operator(
-        raw.info, fwd, cov, verbose=True)
-    # replace evoked.data into the IC data matrix, e.g.,
-    # evoked.data = np.tile()
-
     if IC is None:
         warnings.warn('No input IC data. Using default data')
         IC = raw.get_data(picks='eeg')[:, 0]
         IC = np.asarray([IC])
 
+    # cov = IC.T.dot(IC)
+    cov = mne.compute_covariance(epochs, tmax=0., method=['shrunk', 'empirical'], rank=None, verbose=True)
+    cov.update(data=np.eye(cov.data.shape[0]))
+
+    if tuning_paras is None:
+        para_suffix = 'default'
+        inv = mne.minimum_norm.make_inverse_operator(
+            raw.info, fwd, cov, verbose=True)
+        source_plot(IC, IC_label, inv, evoked, hemi, brain_fig_size,
+                    prefix, subjects_dir, weights, save_plot, separate_plot,
+                    para_suffix)
+    else:
+        from itertools import product
+        assert [*tuning_paras.keys()] == ['depth', 'loose'], 'Paras only allowed depth and loose'
+        for depth, loose in product(*tuning_paras.values()):
+            para_suffix = f'depth_{depth}_loose_{loose}'
+            inv = mne.minimum_norm.make_inverse_operator(
+                raw.info, fwd, cov, verbose=True, depth=depth, loose=loose)
+            source_plot(IC=IC, IC_label=IC_label, inv=inv, evoked=evoked,
+                        hemi=hemi, brain_fig_size=brain_fig_size,
+                        prefix=prefix, subjects_dir=subjects_dir,
+                        weights=weights, save_plot=save_plot,
+                        separate_plot=separate_plot, para_suffix=para_suffix)
+
+    # replace evoked.data into the IC data matrix, e.g.,
+    # evoked.data = np.tile()
+
+def source_plot(IC, IC_label, inv, evoked, hemi, brain_fig_size, prefix,
+                subjects_dir, weights, save_plot, separate_plot, para_suffix):
     stc_list = []
     brain_image_list = []
     for id_IC, (each_IC, each_label) in enumerate(zip(IC.T, IC_label)):
@@ -90,10 +111,10 @@ def spatial_pattern_to_source(IC=None, IC_label=None, hemi='split',
         if save_plot and separate_plot:
             for view in ['lateral', 'medial']:
                 brain = stc.plot(subjects_dir=subjects_dir, initial_time=0.1,
-                                hemi=hemi, size=brain_fig_size, title=each_label,
-                                views=view)
+                                 hemi=hemi, size=brain_fig_size,
+                                 title=each_label, views=view)
                 brain_image_list.append(brain)
-                brain.save_image(f'{prefix}_{each_label}_{view}.jpg')
+                brain.save_image(f'{prefix}_{each_label}_{view}_{para_suffix}.jpg')
 
     if not separate_plot:
         len_stc = len(stc_list)
@@ -110,7 +131,7 @@ def spatial_pattern_to_source(IC=None, IC_label=None, hemi='split',
                                     views=view)
             brain_image_list.append(brain)
             if save_plot:
-                brain.save_image(f'{prefix}_{view}.jpg')
+                brain.save_image(f'{prefix}_{view}_{para_suffix}.jpg')
 
 
 
