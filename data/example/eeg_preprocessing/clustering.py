@@ -28,7 +28,7 @@ def ind_convert(x, subj_list, stim_list, IC_list):
 
 path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/Processed/RS_epoch/'
 
-fig_root = '/home/jxu/File/Data/jxu_results/data/example/eeg_preprocessing/source_local_tuning_para/'
+fig_root = '/home/jxu/File/Data/jxu_results/data/example/eeg_preprocessing/'
 # sobi_suffix = ''
 sobi_suffix = '_BP(3-70)'
 
@@ -83,14 +83,16 @@ ref_no_stim_cluster_flag = False
 # psd data. E.g., BP means the power intergral of the interested bands.
 generate_featmat = False
 
-load_topo = True
+load_topo = False
 scatter_heatmap_plot = False
 psd_plot = False
+
+only_spec_plot = True  # only 2*2 spectrum for cluster, for BS abstract
 topo_spec_plot = False
 
 tuning_sl_paras_plot = False
-source_local_plot = True
-psd_source_cluster_plot = True
+source_local_plot = False
+psd_source_cluster_plot = False
 
 
 individual_topo_sl_plot = False
@@ -526,6 +528,56 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
                 # fig_hm, ax_hm = plt.subplots(1, 1, figsize=(32, 120))
             # fig.savefig('hm_{0}_{1}{2}.jpg'.format(feat_type, est_flag, suffix))
+        if only_spec_plot:
+
+            width_ratios = [10, 10]
+            height_ratios = [5, 5]
+
+            len_w = len(width_ratios)
+            len_h = len(height_ratios)
+
+            fig_onlyspec = plt.figure(figsize=(sum(width_ratios), sum(height_ratios)))
+            gs = gridspec.GridSpec(len(height_ratios), len(width_ratios),
+                                   height_ratios=height_ratios,
+                                   width_ratios=width_ratios)
+
+            ax_onlyspec = np.empty((len_h, len_w), dtype='object')
+            for i in range(len_h):
+                for j in range(len_w):
+                    ax_onlyspec[i, j] = fig_onlyspec.add_subplot(gs[i, j])
+
+            for id_label, label_val in enumerate(label_set):
+
+                print(id_label)
+                id_row, id_col = divmod(id_label, 2)
+                ind = np.where(all_labels == label_val)[0]
+                tmp = list(
+                    map(lambda x: ind_convert(x, subj_list=subj_list,
+                                            stim_list=stim_list,
+                                            IC_list=IC_list), ind))
+                mask = diff_all_df[['IC', 'subject', 'stim_freq']].agg(tuple, 1).isin(tmp)
+                subset_df = diff_all_df[mask]
+                subset_df['stim_freq'].replace({0: 'Sham', 4: '4 Hz',
+                                                10: '10 Hz', 40: '40 Hz'},
+                                               inplace=True)
+                subset_df.rename(columns={'stim_freq': 'tACS frequency',
+                                          'freq_val': 'Frequency / Hz',
+                                          'diff_val': 'Difference Spectrum / dB'},
+                                 inplace=True)
+
+                sns.lineplot(x='Frequency / Hz', y='Difference Spectrum / dB',
+                             hue='tACS frequency', data=subset_df,
+                             ax=ax_onlyspec[id_row, id_col], palette="tab10")
+                ax_onlyspec[id_row, id_col].set_title('Cluster {0}'.format(str(label_val)), fontsize=24)
+                ax_onlyspec[id_row, id_col].tick_params(axis='both', which='major', labelsize=20)
+                ax_onlyspec[id_row, id_col].xaxis.get_label().set_fontsize(20)
+                ax_onlyspec[id_row, id_col].yaxis.get_label().set_fontsize(20)
+                ax_onlyspec[id_row, id_col].legend(prop=dict(size=20))
+            fig_onlyspec.tight_layout()
+            fig_onlyspec.savefig(fig_root+'Onlyspec{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
+
+            import pdb;pdb.set_trace()
+
 
         if topo_spec_plot:
 
@@ -624,7 +676,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
         if tuning_sl_paras_plot:
             from itertools import product
-
+            fig_root += 'source_local_tuning_para/'
             # IC_list = [18, 20, 98]
             # each_label = IC_list[2]
             for each_label in IC_list:
