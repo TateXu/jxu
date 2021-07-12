@@ -77,9 +77,10 @@ def spatial_pattern_to_source(IC=None, IC_label=None, hemi='split',
     cov.update(data=np.eye(cov.data.shape[0]))
 
     if tuning_paras is None:
-        para_suffix = 'default'
+        print('Using the default inverse operator: dSPM, depth 9.6, loose 0.2')
+        para_suffix = 'Depth_9.6_Loose_0.2'
         inv = mne.minimum_norm.make_inverse_operator(
-            raw.info, fwd, cov, verbose=True)
+            raw.info, fwd, cov, verbose=True, depth=9.6, loose=0.2)
         source_plot(IC, IC_label, inv, evoked, hemi, brain_fig_size,
                     prefix, subjects_dir, weights, save_plot, separate_plot,
                     para_suffix)
@@ -121,17 +122,26 @@ def source_plot(IC, IC_label, inv, evoked, hemi, brain_fig_size, prefix,
         stc_data = np.empty((stc_list[0].data.shape[0], len_stc))
         for id_stc, each_stc in enumerate(stc_list):
             stc_data[:, id_stc] = each_stc.data[:, 0]
-        merged_stc = stc_list[-1]
-        merged_stc.data = np.average(
-            stc_data, weights=weights, axis=1).reshape((stc_data.shape[0], -1))
 
-        for view in ['lateral', 'medial']:
-            brain = merged_stc.plot(subjects_dir=subjects_dir, initial_time=0.1,
-                                    hemi=hemi, size=brain_fig_size, title='merged_label',
-                                    views=view)
-            brain_image_list.append(brain)
-            if save_plot:
-                brain.save_image(f'{prefix}_{view}_{para_suffix}.jpg')
+        for i in range(4):
+            merged_stc = stc_list[-1].copy()
+            tmp_data = np.sum(
+                stc_data * np.tile(weights[i], (stc_data.shape[0], 1)), axis=1)
+    #         tmp_data = np.average(
+                # stc_data, weights=weights, axis=1).reshape((stc_data.shape[0], -1))
+
+            merged_stc.data = np.tile(tmp_data.reshape((tmp_data.size, 1)),
+                                      (1, 701))
+
+            for view in ['lateral', 'medial']:
+                brain = merged_stc.plot(subjects_dir=subjects_dir,
+                                        initial_time=0.1, hemi=hemi,
+                                        size=brain_fig_size,
+                                        title='merged_label',
+                                        views=view)
+                brain_image_list.append(brain)
+                if save_plot:
+                    brain.save_image(f'{prefix}Cluster_{str(i)}_{view}_{para_suffix}.jpg')
 
 
 

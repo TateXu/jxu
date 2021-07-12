@@ -88,9 +88,9 @@ scatter_heatmap_plot = False
 psd_plot = False
 topo_spec_plot = False
 
-tuning_sl_paras_plot = True
-source_local_plot = False
-psd_source_cluster_plot = False
+tuning_sl_paras_plot = False
+source_local_plot = True
+psd_source_cluster_plot = True
 
 
 individual_topo_sl_plot = False
@@ -606,20 +606,21 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             rownames = ['Cluster_' + str(i) for i in range(4) ]
             all_IC = select_A[:, IC_list]
 
-            # For generaling individual IC source local.
-            # sl_paras = {'depth': [0.2, 0.4, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6],
-            sl_paras = {'depth': [6.4, 8.0, 9.6, 12.8, 16.0, 20, 25, 30, 40, 60],
-                        'loose': [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]}
-            SP2S(IC=all_IC, IC_label=label, save_plot=True,
-                 separate_plot=True, picks=bads, prefix=fig_root,
-                 tuning_paras=sl_paras)
-            import pdb;pdb.set_trace()
+            # # For generaling individual IC source local.
+            # sl_paras = {'depth': [0.2, 0.4, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8,
+                                    # 5.6, 6.4, 8.0, 9.6, 12.8, 16.0, 20, 25,
+                                    # 30, 40, 60],
+                        # 'loose': [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]}
+            # SP2S(IC=all_IC, IC_label=label, save_plot=True,
+                 # separate_plot=True, picks=bads, prefix=fig_root,
+                 # tuning_paras=sl_paras)
             weights_mat = ic_cluster / 32.0
-            for i in range(4):
-                prefix = 'Cluster_' + str(i)
-                SP2S(IC=all_IC, IC_label=label, save_plot=True,
-                     separate_plot=False, weights=weights_mat[i], picks=bads,
-                     prefix=fig_root+prefix)
+            import pdb;pdb.set_trace()
+            SP2S(IC=all_IC, IC_label=label, save_plot=True,
+                 separate_plot=False, weights=weights_mat, picks=bads,
+                 prefix=fig_root, tuning_paras=None)
+
+            import pdb;pdb.set_trace()
 
         if tuning_sl_paras_plot:
             from itertools import product
@@ -755,7 +756,8 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                         'Cluster {0} (ref. to no-stim)'.format(str(label_val)))
 
                 for id_view, (view, annot) in enumerate(zip(['lateral', 'medial'], ['Outside -> Inside', 'Inside -> Outside'])):
-                    data = plt.imread(f'Cluster_{id_label}_{view}.jpg')
+                    para_suffix = 'Depth_9.6_Loose_0.2'
+                    data = plt.imread(f'{fig_root}Cluster_{id_label}_{view}_{para_suffix}.jpg')
                     ax_psd_source[id_label, 2 + id_view].imshow(data)
                     ax_psd_source[id_label, 2 + id_view].set_title(f'Cluster_{id_label}_{view} ({annot})')
 
@@ -763,20 +765,21 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
 
             # --------- Barplot of Cluster and IC related weights -------------
-            import pdb;pdb.set_trace()
             ic_df = pd.DataFrame(ic_cluster, columns=label, index=rownames)
             ic_df.columns.name = 'IC'
             ic_df.index.name = 'Cluster'
             ic_df_series = ic_df.stack().reset_index(level=1, name='value').reset_index()
-            sns.barplot(data=ic_df_series, x='Cluster', y='value', hue='IC', ax=ax_bar[0])
-            ax_bar[0].set_title('Group by IC')
-            sns.barplot(data=ic_df_series, x='IC', y='value', hue='Cluster', ax=ax_bar[1])
-            ax_bar[1].set_title('Group by Cluster')
+            sns.barplot(data=ic_df_series, x='Cluster', y='value', hue='IC', ax=ax_bar[0, 0])
+            ax_bar[0, 0].set_title('Group by IC')
+            sns.barplot(data=ic_df_series, x='IC', y='value', hue='Cluster', ax=ax_bar[1, 0])
+            ax_bar[1, 0].set_title('Group by Cluster')
             fig_psd_source.tight_layout()
-            fig_psd_source.savefig('Barplot_IC_Cluster.jpg')
+            fig_psd_source.savefig('Barplot_IC_Cluster__.jpg')
+            import pdb;pdb.set_trace()
 
         if individual_topo_sl_plot:
             # ------------ Topo and source local for each IC -----------------
+            prefix = fig_root
             nr_comp = len(IC_list)
             width_ratios = [5, 1, 10, 10]
             height_ratios = [5] * nr_comp
@@ -803,14 +806,17 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 ax_topo_sl[id_IC][0].set_title(
                     'IC_{0}'.format(str(IC_list[id_IC])))
                 for id_view, (view, annot) in enumerate(zip(['lateral', 'medial'], ['Outside -> Inside', 'Inside -> Outside'])):
-                    data = plt.imread(f'_IC_{IC}_{view}.jpg')
+
+                    para_suffix = f'depth_{str(9.6)}_loose_{str(0.6)}'
+                    data = plt.imread(f'{prefix}_IC_{IC}_{view}_{para_suffix}.jpg')
+                    # data = plt.imread(f'_IC_{IC}_{view}.jpg')
                     ax_topo_sl[id_IC, 2 + id_view].imshow(data)
                     ax_topo_sl[id_IC, 2 + id_view].set_title(f'IC_{IC}_{view} ({annot})')
 
                 print(id_IC)
 
             fig_topo_sl.tight_layout()
-            fig_topo_sl.savefig('Individual_IC_source_localization.jpg')
+            fig_topo_sl.savefig(f'Individual_IC_source_localization_{para_suffix}.jpg')
 
 
 
