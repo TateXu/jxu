@@ -44,7 +44,7 @@ bands_list = [(1.0, 4.0), (4.0, 8.0), (8.0, 12.0), (12.0, 30.0), (30.0, 70.0)]
 bands_list_name = ['delta', 'theta', 'alpha', 'beta', 'gamma']
 
 new_band_name = ['BP(1-70)', 'delta(1-4)', 'theta(4-8)', 'Alpha(8-12)',
-                   'L_Beta(12-20)', 'H_Beta(20-30)', 'L_Gamma(30-70)']
+                 'L_Beta(12-20)', 'H_Beta(20-30)', 'L_Gamma(30-70)']
 
 all_IC_flag = False
 if all_IC_flag:
@@ -83,11 +83,11 @@ ref_no_stim_cluster_flag = False
 # psd data. E.g., BP means the power intergral of the interested bands.
 generate_featmat = False
 
-load_topo = False
+load_topo = True
 scatter_heatmap_plot = False
 psd_plot = False
 
-only_spec_plot = True  # only 2*2 spectrum for cluster, for BS abstract
+only_spec_plot = False# only 2*2 spectrum for cluster, for BS abstract
 topo_spec_plot = False
 
 tuning_sl_paras_plot = False
@@ -260,6 +260,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
         n_topo_row = 6
         if load_topo:
+            print('Loading IC topo')
             pca_flag = False
             if pca_flag:
                 import scipy
@@ -869,6 +870,99 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
             fig_topo_sl.tight_layout()
             fig_topo_sl.savefig(f'Individual_IC_source_localization_{para_suffix}.jpg')
+
+
+        IC_topo_spec_plot = True
+        if IC_topo_spec_plot:
+            nr_comp = len(IC_list)
+            width_ratios = [5, 1, 10, 10, 10, 10, 10, 10]
+            height_ratios = [5] * nr_comp
+
+            max_pixel = max(sum(width_ratios), sum(height_ratios))
+            if max_pixel * 200 > 2**16:
+                down_ratio = np.ceil(max_pixel * 200 / 2**16)
+            else:
+                down_ratio = 1
+
+            width_ratios = [i / down_ratio for i in width_ratios]
+            height_ratios = [i / down_ratio for i in height_ratios]
+
+            len_w = len(width_ratios)
+            len_h = len(height_ratios)
+
+            fig_spectopo = plt.figure(figsize=(sum(width_ratios), sum(height_ratios)))
+            import pdb;pdb.set_trace()
+            gs = gridspec.GridSpec(len(height_ratios), len(width_ratios),
+                                   height_ratios=height_ratios,
+                                   width_ratios=width_ratios)
+
+            ax_spectopo = np.empty((len_h, len_w), dtype='object')
+            for i in range(len_h):
+                for j in range(len_w):
+                    ax_spectopo[i, j] = fig_spectopo.add_subplot(gs[i, j])
+
+            for id_IC, IC in enumerate(IC_list):
+
+                # Plot topo with cbar
+
+                im_tmp = topo(select_A[:, IC], info,
+                              axes=ax_spectopo[id_IC][0], show=False)
+                fig_spectopo.colorbar(im_tmp[0], cax=ax_spectopo[id_IC][1],
+                             orientation='vertical')
+                ax_spectopo[id_IC][0].set_title(
+                    'IC_{0}'.format(str(IC_list[id_IC])))
+
+                IC_df = diff_all_df.loc[diff_all_df['IC'] == IC].copy()
+                sns.lineplot(x='freq_val', y='diff_val', hue='stim_freq',
+                            data=IC_df, ax=ax_spectopo[id_IC, 2], palette="tab10")
+                ax_spectopo[id_IC, 2].set_title('IC {0} Difference'.format(str(IC)))
+                print(id_IC)
+
+                ref_no_stim_flag = True
+                if ref_no_stim_flag:
+                    no_stim_df = IC_df.loc[IC_df['stim_freq'] == 0].copy()
+                    mean_no_stim = no_stim_df.pivot(index='freq_val',
+                                                    columns=['subject', 'IC'],
+                                                    values='diff_val').mean(axis=1)
+                    ref_stim_df = IC_df.loc[IC_df['stim_freq'] != 0].copy()
+                    pre_diff_val = ref_stim_df['diff_val'].values
+                    ref_stim_df['diff_val'] = pre_diff_val - \
+                        np.tile(mean_no_stim, np.int(pre_diff_val.shape[0] / 144))
+                    ref_suffix = '_ref'
+
+                    sns.lineplot(x='freq_val', y='diff_val', hue='stim_freq',
+                                 data=ref_stim_df, ax=ax_spectopo[id_IC, 3], palette="tab10")
+                    ax_spectopo[id_IC, 3].set_title('IC {0} Difference_ref_to_sham'.format(str(IC)))
+
+
+                for id_stg, stg in enumerate(['pre', 'post']):
+                    tmp_df = all_df.loc[(all_df['IC'] == IC) & (all_df['session'] == stg)].copy()
+                    tmp_df = tmp_df.drop(tmp_df[tmp_df['freq_val'] < 3].index)
+
+                    sns.lineplot(x='freq_val', y='psd_val', hue='stim_freq',
+                                data=tmp_df, ax=ax_spectopo[id_IC, id_stg + 4], palette="tab10")
+                    ax_spectopo[id_IC, id_stg + 4].set_title('IC {0} {1}'.format(str(IC), stg))
+
+                    if ref_no_stim_flag:
+                        no_stim_df = tmp_df.loc[tmp_df['stim_freq'] == 0].copy()
+                        mean_no_stim = no_stim_df.pivot(index='freq_val',
+                                                        columns=['subject', 'IC'],
+                                                        values='psd_val').mean(axis=1)
+                        ref_stim_df = tmp_df.loc[tmp_df['stim_freq'] != 0].copy()
+                        pre_diff_val = ref_stim_df['psd_val'].values
+                        ref_stim_df['psd_val'] = pre_diff_val - \
+                            np.tile(mean_no_stim, np.int(pre_diff_val.shape[0] / 137))
+                        ref_suffix = '_ref'
+
+                        sns.lineplot(x='freq_val', y='psd_val', hue='stim_freq',
+                                     data=ref_stim_df, ax=ax_spectopo[id_IC, id_stg + 6], palette="tab10")
+                        ax_spectopo[id_IC, id_stg + 6].set_title('IC {0} {1}_ref_to_sham'.format(str(IC), stg))
+
+
+            fig_spectopo.tight_layout()
+            fig_spectopo.savefig(fig_root+'IC_Spectopo_{0}_start_3Hz_ref.jpg'.format(fig_sobi_suffix))
+
+            import pdb;pdb.set_trace()
 
 
 

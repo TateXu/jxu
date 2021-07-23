@@ -29,8 +29,8 @@ path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/Processed/RS_epoch/'
 # freq_pkl to collect all individual into one single freq. pkl
 # all_pkl to collect all freq pkl into a single all_pkl
 # all_sobi use all_pkl to generate sobi
-individual = 'all_pca_sobi'  # 'freq_sobi' 'all_sobi' 'all_pkl' all_sobi'
-process = True
+individual = 'all_sob'  # 'freq_sobi' 'all_sobi' 'all_pkl' all_sobi'
+process = False
 col_topo = 2
 
 bands_id = 0
@@ -98,6 +98,17 @@ if not process:
                                  fontsize='xx-large', fontweight='heavy')
         for j in range(13):
             axes_main[0, j].set_axis_off()
+
+"""
+Input data: S1_Ses0_filter-band.pkl, which is epoched RS close data.
+
+kkk
+
+process=True, individual='freq_pkl'
+Load the filtered RS epoch data and
+
+
+"""
 
 if process:
     if individual == 'freq_pkl':
@@ -276,6 +287,7 @@ else:
         source_, A_, W_ = res
 
         if generate_df:
+            from jxu.pipelines.features import peak_alpha_feat
             import pdb;pdb.set_trace()
             n_comp = 120
             comp_start = 0
@@ -293,6 +305,8 @@ else:
 
                             xdata = ax_tmp.lines[2].get_xdata()
                             psd = ax_tmp.lines[2].get_ydata()
+                            import pdb;pdb.set_trace()
+                            aaa = peak_alpha_feat(xdata, psd)
                             data_dict = {'stim_freq': [freq] * len(psd),
                                          'session': [stg] * len(psd),
                                          'subject': [subj] * len(psd),
