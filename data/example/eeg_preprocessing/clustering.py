@@ -78,14 +78,20 @@ T_ratio = 1.0
 # 0Hz activity across all sessions & subjects
 ref_no_stim_cluster_flag = False
 
+# Remove the individual 0Hz activity
+individual_ref_flag = False
+
+# Only analyze no-stim data
+only_nostim_flag = True
+
 # Flag: compute the feature matrix from psd at ICA projected space
 # after selecting the feature type, extract the desired features from the raw
 # psd data. E.g., BP means the power intergral of the interested bands.
 generate_featmat = False
 
 load_topo = True
-scatter_heatmap_plot = False
-psd_plot = False
+scatter_heatmap_plot = True
+psd_plot = True
 
 only_spec_plot = False# only 2*2 spectrum for cluster, for BS abstract
 topo_spec_plot = False
@@ -96,6 +102,7 @@ psd_source_cluster_plot = False
 
 
 individual_topo_sl_plot = False
+
 for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all_spectra'
     for n_clusters in[4, 6]:
 
@@ -107,6 +114,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             suffix = '_' + bands_list_name[id_band]
 
         if ref_no_stim_cluster_flag:
+            # this is to remove overall no stim (average)
             no_stim_df = df.loc[df['stim_freq'] == 0].copy()
             mean_no_stim = no_stim_df.pivot(index='freq_val',
                                             columns=['subject', 'IC'],
@@ -125,6 +133,8 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             ref_suffix = ''
         # df_to_featmat is the processed dataframe which will be used to
         # generate features matrices to classify and plot
+        if individual_ref_flag:
+            ref_suffix = '_individual_ref'
 
         if generate_featmat:
 
@@ -142,12 +152,21 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
             for id_comp, val_comp in enumerate(IC_list):
                 for id_subj, subj in enumerate(subj_list):
+                    if individual_ref_flag:
+                        individual_no_stim_df = df.loc[(df['stim_freq'] == 0) &
+                                                        (df['subject'] == subj)&
+                                                        (df['IC'] == val_comp)]
+                        individual_no_stim_diff = individual_no_stim_df.diff_val.values
                     for id_stim, stim in enumerate(stim_list):
 
                         each_pdf = df_to_featmat.loc[(df_to_featmat['IC'] == val_comp) &
                                                      (df_to_featmat['stim_freq'] == stim) &
                                                      (df_to_featmat['subject'] == subj)]
-                        diff_val = each_pdf.diff_val.values
+
+                        if individual_ref_flag:
+                            diff_val = each_pdf.diff_val.values - individual_no_stim_diff
+                        else:
+                            diff_val = each_pdf.diff_val.values
                         freq_val = each_pdf.freq_val.values
 
                         if feat_type == 'fix_nr_sample':
@@ -186,6 +205,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
 
                 print(id_comp)
 
+            import pdb;pdb.set_trace()
             with open('{0}cluster_feat_df_{1}{2}{3}{4}.pkl'.format(
                     path, feat_type, suffix, ref_suffix, fig_sobi_suffix), 'wb') as f:
                 pickle.dump(feat_mat, f)
@@ -193,6 +213,21 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             with open('{0}cluster_feat_df_{1}{2}{3}{4}.pkl'.format(
                     path, feat_type, suffix, ref_suffix, fig_sobi_suffix), 'rb') as f:
                 feat_mat = pickle.load(f)
+            if individual_ref_flag:
+                feat_mat = feat_mat[:, :, 1:, :]
+                new_stim_list = [4, 10, 40]
+            else:
+                new_stim_list = stim_list.copy()
+
+            if only_nostim_flag:
+                import pdb;pdb.set_trace()
+                assert not individual_ref_flag, 'for nostim plots, individual_ref_flag must turn off'
+                feat_mat = feat_mat[:, :, :1, :]
+                new_stim_list = [0]
+                ref_suffix = '_only_nostim'
+            else:
+                new_stim_list = stim_list.copy()
+        import pdb;pdb.set_trace()
 
         # featmat is the feature matrix of shape #comp *#subj * #stim *len_feat
         assert len(IC_list) == feat_mat.shape[0], 'For updating IC list, feat should be regenerate'
@@ -205,7 +240,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
         for id_comp, val_comp in enumerate(IC_list):
         # for id_comp in range(n_comp):
             for id_subj, subj in enumerate(subj_list):
-                for id_stim, stim in enumerate(stim_list):
+                for id_stim, stim in enumerate(new_stim_list):
                     ref_label[cnt] = [id_comp, subj, stim]
                     cnt += 1
         new_shape = [len_obs]
@@ -215,7 +250,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
         # feat_vec is the vectorized featmat, i.e., each row represents one
         # comp&subj& stim's feature to cluster
         feat_vec = np.reshape(tmp, (len_obs, len_feat))
-
+        import pdb;pdb.set_trace()
         est_flag = 'KMeans'  # 'DBSCAN'
         if est_flag == 'DBSCAN':
             from sklearn.metrics.pairwise import euclidean_distances
@@ -361,7 +396,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 ind = np.where(all_labels == label_val)[0]
                 tmp = list(
                     map(lambda x: ind_convert(x, subj_list=subj_list,
-                                              stim_list=stim_list,
+                                              stim_list=new_stim_list,
                                               IC_list=IC_list), ind))
                 if ref_no_stim_cluster_flag:
                     mask = df_to_featmat[['IC', 'subject', 'stim_freq']].agg(tuple, 1).isin(tmp)
@@ -445,12 +480,16 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
             except:
                 import pdb;pdb.set_trace()
 
-            fig.tight_layout()
-            fig.savefig('{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
+            if not scatter_heatmap_plot:
+                fig.tight_layout()
+                fig.savefig('{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
+
+            import pdb;pdb.set_trace()
 
 
 
         if scatter_heatmap_plot:
+            assert psd_plot, 'psd_plot flag must turn on!'
             ncol = 6
             if not 'ax_tsne ' in vars() and not 'ax_tsne' in globals():
                 ax_tsne = [''] * ncol
@@ -485,7 +524,7 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 ax_tsne[1].set_title('Subject based')
                 ax_tsne[1].legend()
 
-            for i, c in zip(stim_list, colors):
+            for i, c in zip(new_stim_list, colors):
                 data = list(map(tuple, X_2d[np.where(ref_label[:, 2] == i)[0]]))
                 ax_tsne[2].scatter(*zip(*data), c=c, label=i)
                 ax_tsne[2].set_title('Stim based')
@@ -506,19 +545,19 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 xlabel_name = []
                 if order == 'F':
                     suffix += '_group_by_stim'
-                    for id_stim in stim_list:
+                    for id_stim in new_stim_list:
                         for id_subj in subj_list:
                             xlabel_name.append(
                                 'S{0}_{1}Hz'.format(str(id_subj), str(id_stim)))
                 elif order == 'C':
                     suffix += '_group_by_subject'
                     for id_subj in subj_list:
-                        for id_stim in stim_list:
+                        for id_stim in new_stim_list:
                             xlabel_name.append(
                                 'S{0}_{1}Hz'.format(str(id_subj), str(id_stim)))
 
-                label_mat = all_labels.reshape(n_comp, len(subj_list), len(stim_list))
-                label_mat = label_mat.reshape(n_comp, len(subj_list)*len(stim_list), order=order)
+                label_mat = all_labels.reshape(n_comp, len(subj_list), len(new_stim_list))
+                label_mat = label_mat.reshape(n_comp, len(subj_list)*len(new_stim_list), order=order)
                 tmp = sns.heatmap(data=label_mat, ax=ax_tsne[4+i],
                                 xticklabels=xlabel_name)
                 ax_tsne[4+i].xaxis.tick_top()  # x axis on top
@@ -527,8 +566,11 @@ for feat_type in ['BP_3', 'all_spectra']:  # , 'BP', 'all_spectra''BP_3', , 'all
                 tmp.set_xticklabels(tmp.get_xticklabels(), fontsize=8, rotation=45)
                 ax_tsne[4+i].set_title(suffix[1:])
 
+            fig.tight_layout()
+            fig.savefig('{0}_cluster_{1}_{2}{3}{4}.jpg'.format(est_flag, str(n_clusters), feat_type, ref_suffix, fig_sobi_suffix))
                 # fig_hm, ax_hm = plt.subplots(1, 1, figsize=(32, 120))
             # fig.savefig('hm_{0}_{1}{2}.jpg'.format(feat_type, est_flag, suffix))
+        import pdb;pdb.set_trace()
         if only_spec_plot:
 
             width_ratios = [10, 10]

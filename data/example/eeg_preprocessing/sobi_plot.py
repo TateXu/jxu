@@ -29,7 +29,7 @@ path = '/home/jxu/File/Data/NIBS/Stage_one/EEG/Processed/RS_epoch/'
 # freq_pkl to collect all individual into one single freq. pkl
 # all_pkl to collect all freq pkl into a single all_pkl
 # all_sobi use all_pkl to generate sobi
-individual = 'all_sob'  # 'freq_sobi' 'all_sobi' 'all_pkl' all_sobi'
+individual = 'all_sobi'  # 'freq_sobi' 'all_sobi' 'all_pkl' all_sobi'
 process = False
 col_topo = 2
 
@@ -287,42 +287,111 @@ else:
         source_, A_, W_ = res
 
         if generate_df:
-            from jxu.pipelines.features import peak_alpha_feat
             import pdb;pdb.set_trace()
             n_comp = 120
             comp_start = 0
-            for freq_id, freq in enumerate(freq_list):
-                _subj_list = subj_list.copy()
+            feat_type = 'apf'
+            if feat_type == 'psd':
+                for freq_id, freq in enumerate(freq_list):
+                    _subj_list = subj_list.copy()
 
-                for stg_id, stg in enumerate(stg_list):
-                    for subj_id, subj in enumerate(_subj_list):
-                        data = source_[:, accm_len: accm_len + 180001]
-                        ep = mne.io.RawArray(data, info)
-
-                        for id_comp in range(n_comp):
-                            fig_tmp, ax_tmp = plt.subplots(1, 1, figsize=(10, 6))
-                            tmp_1 = ep.plot_psd(fmax=70.0, picks=[id_comp + comp_start], ax=ax_tmp, show=False, verbose='WARNING')
-
-                            xdata = ax_tmp.lines[2].get_xdata()
-                            psd = ax_tmp.lines[2].get_ydata()
+                    for stg_id, stg in enumerate(stg_list):
+                        for subj_id, subj in enumerate(_subj_list):
+                            data = source_[:, accm_len: accm_len + 180001]
+                            ep = mne.io.RawArray(data, info)
                             import pdb;pdb.set_trace()
-                            aaa = peak_alpha_feat(xdata, psd)
-                            data_dict = {'stim_freq': [freq] * len(psd),
-                                         'session': [stg] * len(psd),
-                                         'subject': [subj] * len(psd),
-                                         'IC': [id_comp+comp_start] * len(psd),
-                                         'freq_val': xdata,
-                                         'psd_val': psd}
+
+                            for id_comp in range(n_comp):
+                                fig_tmp, ax_tmp = plt.subplots(1, 1, figsize=(10, 6))
+                                tmp_1 = ep.plot_psd(fmax=70.0, picks=[id_comp + comp_start], ax=ax_tmp, show=False, verbose='WARNING',
+                                                    n_fft=4096)
+
+                                xdata = ax_tmp.lines[2].get_xdata()
+                                psd = ax_tmp.lines[2].get_ydata()
+                                data_dict = {'stim_freq': [freq] * len(psd),
+                                            'session': [stg] * len(psd),
+                                            'subject': [subj] * len(psd),
+                                            'IC': [id_comp+comp_start] * len(psd),
+                                            'freq_val': xdata,
+                                            'psd_val': psd}
+                                tmp_df = pd.DataFrame.from_dict(data_dict, orient='columns')
+                                all_df = all_df.append(tmp_df)
+
+                                del fig_tmp, ax_tmp
+
+                            print('Finish extracting data from freq_{0}Hz, session_{1}, subject_{2}'.format(str(freq), stg, str(subj)))
+                            print('Segment {0}'.format(str(accm_len/180001)))
+                            accm_len += 180001
+
+                all_df.to_pickle('{0}SOBI_all_df_default_{1}_highres.pkl'.format(path, bands_list_name[bands_id]))
+                import pdb;pdb.set_trace()
+            elif feat_type == 'apf':
+                from philistine.mne import attenuation_iaf, savgol_iaf
+
+                column_names = ['stim_freq', 'session', 'subject', 'IC', 'IAPF', 'CoG', 'Alpha_Band']
+                all_df = pd.DataFrame(columns=column_names)
+                for freq_id, freq in enumerate(freq_list):
+                    _subj_list = subj_list.copy()
+
+                    for stg_id, stg in enumerate(stg_list):
+                        for subj_id, subj in enumerate(_subj_list):
+                            data = source_[:, accm_len: accm_len + 180001]
+                            ep = mne.io.RawArray(data, info)
+
+                            for id_comp in range(n_comp):
+                                try:
+                                    tmp_obj = savgol_iaf(ep, picks=[id_comp], resolution=0.02)
+                                except:
+                                    tmp_obj = savgol_iaf(ep, picks=[id_comp], resolution=0.02, fmin=7.0, fmax=14.0)
+                                data_dict = {'stim_freq': [freq],
+                                            'session': [stg],
+                                            'subject': [subj],
+                                            'IC': [id_comp+comp_start],
+                                            'IAPF': [tmp_obj[0]],
+                                            'CoG': [tmp_obj[1]],
+                                            'Alpha_Band': [tmp_obj[2]]
+                                             }
+                                tmp_df = pd.DataFrame.from_dict(data_dict, orient='columns')
+                                all_df = all_df.append(tmp_df)
+
+                            print('Finish extracting data from freq_{0}Hz, session_{1}, subject_{2}'.format(str(freq), stg, str(subj)))
+                            print('Segment {0}'.format(str(accm_len/180001)))
+                            accm_len += 180001
+
+                all_df.to_pickle('{0}IAPF_savgol_{1}.pkl'.format(path, bands_list_name[bands_id]))
+                import pdb;pdb.set_trace()
+
+            elif feat_type == 'HT':
+                from jxu.pipelines.features import HT
+                column_names = ['stim_freq', 'session', 'subject', 'IC', 'IF_median', 'IF_mean']
+                all_df = pd.DataFrame(columns=column_names)
+                for freq_id, freq in enumerate(freq_list):
+                    _subj_list = subj_list.copy()
+
+                    for stg_id, stg in enumerate(stg_list):
+                        for subj_id, subj in enumerate(_subj_list):
+                            data = source_[:, accm_len: accm_len + 180001]
+                            IF = HT(freq=1000.0).transform(data)
+                            IF_median = np.median(IF, axis=-1)
+                            IF_mean = np.mean(IF, axis=-1)
+
+                            data_dict = {'stim_freq': [freq] * len(IF_median),
+                                        'session': [stg] * len(IF_median),
+                                        'subject': [subj] * len(IF_median),
+                                        'IC': range(len(IF_median)),
+                                        'IF_median': IF_median,
+                                        'IF_mean': IF_mean
+                                        }
                             tmp_df = pd.DataFrame.from_dict(data_dict, orient='columns')
                             all_df = all_df.append(tmp_df)
 
-                            del fig_tmp, ax_tmp
+                            print('Finish extracting data from freq_{0}Hz, session_{1}, subject_{2}'.format(str(freq), stg, str(subj)))
+                            print('Segment {0}'.format(str(accm_len/180001)))
+                            accm_len += 180001
 
-                        print('Finish extracting data from freq_{0}Hz, session_{1}, subject_{2}'.format(str(freq), stg, str(subj)))
-                        print('Segment {0}'.format(str(accm_len/180001)))
-                        accm_len += 180001
+                all_df.to_pickle('{0}SOBI_IF_{1}.pkl'.format(path, bands_list_name[bands_id]))
 
-            all_df.to_pickle('{0}SOBI_all_df_default_{1}.pkl'.format(path, bands_list_name[bands_id]))
+
         else:
             drop_bad = True
             if drop_bad:

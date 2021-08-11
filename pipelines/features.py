@@ -4,7 +4,7 @@ from scipy import signal
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
-def peak_alpha_feat(freq, psd, alpha_range=[7.0, 14.0]):
+def alpha_peak_feat(freq, psd, alpha_range=[7.0, 14.0], prior_IAPF=None, prior_AB=None):
 
     from scipy.signal import savgol_filter
     from scipy.signal import argrelextrema
@@ -13,26 +13,45 @@ def peak_alpha_feat(freq, psd, alpha_range=[7.0, 14.0]):
     a_ind = freq[(freq > alpha_range[0]) & (freq < alpha_range[1])]
     a_bp_hat = savgol_filter(a_bp, 7, 3)
 
-    IAPF_raw = np.sum(a_bp*a_ind) / np.sum(a_bp)
-    IAPF_smooth = np.sum(a_bp_hat*a_ind) / np.sum(a_bp_hat)
+    if prior_IAPF == None:
+        IAPF_raw = np.sum(a_bp*a_ind) / np.sum(a_bp)
+        IAPF_smooth = np.sum(a_bp_hat*a_ind) / np.sum(a_bp_hat)
+    else:
+        IAPF_raw = prior_IAPF.copy()
+        IAPF_smooth = prior_IAPF.copy()
 
     if np.abs(IAPF_raw-IAPF_smooth) > 0.1:
         print(f'IAPF_raw: {str(IAPF_raw)} Hz\n IAPF_smooth: {str(IAPF_smooth)} Hz')
         import pdb;pdb.set_trace()
 
-    maxima = a_ind[argrelextrema(a_bp_hat, np.greater)[0]]
-    minima = a_ind[argrelextrema(a_bp_hat, np.less)[0]]
-
     IAPF = a_ind[np.abs(a_ind - IAPF_raw).argmin()]
     IAPF_bp_raw = a_bp[a_ind == IAPF][0]
     IAPF_bp_smooth = a_bp_hat[a_ind == IAPF][0]
 
-    left_minima_freq = minima[(minima-IAPF < 0)][-1]
-    right_minima_freq = minima[(minima-IAPF > 0)][0]
-    left_minima_bp_raw = a_bp[(a_ind == left_minima_freq)][0]
-    right_minima_bp_raw = a_bp[(a_ind == right_minima_freq)][0]
-    left_minima_bp_smooth = a_bp_hat[(a_ind == left_minima_freq)][0]
-    right_minima_bp_smooth = a_bp_hat[(a_ind == right_minima_freq)][0]
+    maxima = a_ind[argrelextrema(a_bp_hat, np.greater)[0]]
+    minima = a_ind[argrelextrema(a_bp_hat, np.less)[0]]
+
+    if minima[(minima-IAPF < 0)].size != 0:
+        left_minima_freq = minima[(minima-IAPF < 0)][-1]
+    else:
+        left_minima_freq = a_ind[0]
+
+    if minima[(minima-IAPF > 0)].size != 0:
+        right_minima_freq = minima[(minima-IAPF > 0)][0]
+    else:
+        right_minima_freq = a_ind[-1]
+
+    if prior_AB == None:
+        left_minima_bp_raw = a_bp[(a_ind == left_minima_freq)][0]
+        right_minima_bp_raw = a_bp[(a_ind == right_minima_freq)][0]
+        left_minima_bp_smooth = a_bp_hat[(a_ind == left_minima_freq)][0]
+        right_minima_bp_smooth = a_bp_hat[(a_ind == right_minima_freq)][0]
+    else:
+        left_minima_bp_raw = prior_AB[0]
+        right_minima_bp_raw = prior_AB[1]
+        left_minima_bp_smooth = prior_AB[0]
+        right_minima_bp_smooth = prior_AB[1]
+
 
     ind_IAPF_bp = np.where(a_bp == IAPF_bp_raw)[0][0]
     left_a_bp = a_bp[:ind_IAPF_bp]
@@ -61,7 +80,7 @@ def peak_alpha_feat(freq, psd, alpha_range=[7.0, 14.0]):
         right_1db = np.nan
 
 
-    feat_dict = {'IAPF': [IAPF, IAPF_bp_raw, IAPF_bp_smooth],
+    feat_dict = {'IAPF': [IAPF, IAPF_raw, IAPF_smooth, IAPF_bp_raw, IAPF_bp_smooth],
                  'Lower_bound': [left_minima_freq, left_minima_bp_raw, left_minima_bp_smooth],
                  'Higher_bound': [right_minima_freq, right_minima_bp_raw, right_minima_bp_smooth],
                  '3db': [left_3db, right_3db],
