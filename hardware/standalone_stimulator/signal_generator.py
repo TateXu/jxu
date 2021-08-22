@@ -5,7 +5,23 @@ import numpy as np
 # This file is similar to https://github.com/sbrinkmann/PyOscilloskop/blob/master/src/rigolScope.py
 
 class BaseDriver:
-    """Simple implementation of a USBTMC device driver, in the style of visa.h"""
+    """Convert the python command into low level I/O command (SCPI)
+
+    Parameters
+    ----------
+
+    Methods
+    -------
+
+
+    Attributes
+    ----------
+
+
+    Returns
+    -------
+
+    """
 
     def __init__(self, dev=None):
         if dev is None:
@@ -19,12 +35,13 @@ class BaseDriver:
             if id_dev == '?':
                 id_dev = 0
                 pass
-            self.dev = dev_path_dict[id_dev]
+            self.dev = dev_path_dict[int(id_dev)]
         else:
             assert os.path.exists(dev), 'Input device path does not exist, \
                 please double-check your input of parameter dev'
             self.dev = dev
 
+        self.device_open()
         self.info()
 
     def device_open(self):
@@ -34,30 +51,30 @@ class BaseDriver:
             self.dev_fd = os.open(self.dev, os.O_RDWR)
             dup_check = [os.fstat(i) == os.fstat(self.dev_fd) for i in range(
                 self.dev_fd)]
-            if bool(dup_check):
+            if any(dup_check):
                 print('The device is already opened, use the first opened fd')
                 self.dev_fd = dup_check.index(True)
             print(f'Device is opened with file descriptor {self.dev_fd}')
         except OSError:
-            self.port_status()
+            self.port_access()  # what is the current access of that port and what is the current user
             print('run the script with sudo')
 
     def set_cmd(self, scpi_command):
         # Why use utf8? Find SCPI doc
         # Low level I/O, fd must be returned by os.open()
-        assert scpi_command == str, 'SCPI command MUST be written in string'
-        os.write(fd=self.dev, str=scpi_command.encode(encoding='utf8'))
+        assert type(scpi_command) == str, 'SCPI command MUST be written in string'
+        os.write(self.dev_fd, scpi_command.encode(encoding='utf8'))
 
     def query_cmd(self, length=1000):
-        return os.read(self.device, length)
+        return os.read(self.dev_fd, length)
 
-    def access(self):
+    def port_access(self):
         access = os.stat(self.dev)
         print(oct(access.st_mode))
 
     def info(self):
-        self.write("*IDN?")
-        return self.read(1000)
+        self.set_cmd("*IDN?")
+        return self.query_cmd(1000)
 
     def available_list(self, port_root='/dev'):
         target_fd = os.popen(f'ls {port_root} |grep "usbtmc"')
@@ -67,9 +84,9 @@ class BaseDriver:
         return port_list
 
     def reset(self):
-        self.write('*RST;*CLS;*OPC?')
+        self.set_cmd('*RST;*CLS;*OPC?')
         time.sleep(2.0)
-        self.read()
+        self.query_cmd()
         print("Reset is done!")
 
 class SignalGenerator(BaseDriver):
@@ -81,43 +98,44 @@ class SignalGenerator(BaseDriver):
     def chn_check(self, chn):
         if chn is None:
             chn = self.out_chn
+        self.prefix = f':SOUR{chn}'
         return chn
 
     def status(self):
         for i in range(1, 3):
-            self.write(':SOURce' + str(i) + ':APPLy?')
+            self.set_cmd(':SOURce' + str(i) + ':APPLy?')
             time.sleep(0.2)
             print('CHN'+ str(i) +':')
-            print(self.read())
+            print(self.query_cmd())
 
     def para_set(self, para_dict, chn=None):
         self.chn_check(chn)
+        special_dict = {'offset': 'VOLT:OFFS'}
         for key, val in para_dict.items():
-            prefix = self.pre_search()
-            self.set_cmd(prefix + ':' + key[:4].upper() + ' ' + str(val).upper())
+            if key not in special_dict.keys():
+                self.set_cmd(self.prefix + ':' + key[:4].upper() + ' ' + str(val).upper())
+            else:
+                self.set_cmd(self.prefix + ':' + special_dict[key] + ' ' + str(val).upper())
+
             time.sleep(0.05)
 
-
     def query(self, cmd):
-        self.write(cmd)
+        self.set_cmd(cmd)
         time.sleep(0.2)
-        print(self.read())
-        return self.read()
+        print(self.query_cmd())
+        return self.query_cmd()
 
     def on(self, chn=None):
         self.chn_check(chn)
-        self.write(f':OUTPut{chn} ON')
+        self.set_cmd(f':OUTPut{chn} ON')
 
     def off(self, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        self.write(':OUTPut' + str(chn) + ' OFF')
+        self.chn_check(chn)
+        self.set_cmd(':OUTPut' + str(chn) + ' OFF')
 
     def impedance_check(self, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        self.write(':OUTPut' + str(chn) + ':IMPedance?')
-
+        self.chn_check(chn)
+        self.set_cmd(':OUTPut' + str(chn) + ':IMPedance?')
 
     def sin_func(self, source=None, function='sin', frequency=50, phase=0, volt=[1, 0]):
         self.cmd = init_sin_func(source=source, function=function, frequency=frequency, phase=phase, volt=volt)
@@ -144,13 +162,13 @@ class SignalGenerator(BaseDriver):
         chn = self.chn_check(chn)
         # self.clear_mem = '
         n_data = len(data)
-        self.write(':SOUR' + str(chn) + ':APPL:ARB ' + str(self.sps))
+        self.set_cmd(':SOUR' + str(chn) + ':APPL:ARB ' + str(self.sps))
         time.sleep(0.2)
-        self.write(':SOUR' + str(chn) + ':DATA:POIN VOLATILE, ' + str(n_data))
+        self.set_cmd(':SOUR' + str(chn) + ':DATA:POIN VOLATILE, ' + str(n_data))
         time.sleep(0.2)
         for ind in range(len(data)):
             data_str = ':DATA:VALue VOLATILE,' + str(ind+1) + ', ' + str(data[ind])
-            self.write(data_str)
+            self.set_cmd(data_str)
             time.sleep(0.2)
 
     def exec_func(self):
@@ -161,7 +179,7 @@ class SignalGenerator(BaseDriver):
             if not isinstance(self.cmd, list):
                 self.cmd = [self.cmd]
             for single_cmd in self.cmd:
-                self.write(single_cmd)
+                self.set_cmd(single_cmd)
             self.status()
 
 
@@ -169,53 +187,53 @@ class SignalGenerator(BaseDriver):
         if chn == None:
             chn = self.out_chn
         if query is not None:
-            self.write(':SOUR' + str(chn) + ':VOLT?' )
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT?' )
             time.sleep(1.0)
-            print(self.read())
+            print(self.query_cmd())
         else:
-            self.write(':SOUR' + str(chn) + ':VOLT ' + str(value))
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT ' + str(value))
 
 
     def offset(self, value, query=None, chn=None):
         if chn == None:
             chn = self.out_chn
         if query is not None:
-            self.write(':SOUR' + str(chn) + ':VOLT:OFFS?' )
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT:OFFS?' )
             time.sleep(1.0)
-            print(self.read())
+            print(self.query_cmd())
         else:
-            self.write(':SOUR' + str(chn) + ':VOLT:OFFS ' + str(value))
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT:OFFS ' + str(value))
 
 
     def frequency(self, value, query=None, chn=None):
         if chn == None:
             chn = self.out_chn
         if query is not None:
-            self.write(':SOUR' + str(chn) + ':FREQ?' )
+            self.set_cmd(':SOUR' + str(chn) + ':FREQ?' )
             time.sleep(1.0)
-            print(self.read())
+            print(self.query_cmd())
         else:
-            self.write(':SOUR' + str(chn) + ':FREQ ' + str(value))
+            self.set_cmd(':SOUR' + str(chn) + ':FREQ ' + str(value))
 
     def phase(self, value, query=None, chn=None):
         if chn == None:
             chn = self.out_chn
         if query is not None:
-            self.write(':SOUR' + str(chn) + ':PHAS?' )
+            self.set_cmd(':SOUR' + str(chn) + ':PHAS?' )
             time.sleep(1.0)
-            print(self.read())
+            print(self.query_cmd())
         else:
-            self.write(':SOUR' + str(chn) + ':PHAS ' + str(value))
+            self.set_cmd(':SOUR' + str(chn) + ':PHAS ' + str(value))
 
     def mode(self, value, query=None, chn=None):
         if chn == None:
             chn = self.out_chn
         if query is not None:
-            self.write(':SOUR' + str(chn) + ':FUNC?' )
+            self.set_cmd(':SOUR' + str(chn) + ':FUNC?' )
             time.sleep(1.0)
-            print(self.read())
+            print(self.query_cmd())
         else:
-            self.write(':SOUR' + str(chn) + ':FUNC ' + value.upper())
+            self.set_cmd(':SOUR' + str(chn) + ':FUNC ' + value.upper())
 
 
 class RigolFunctionGenerator(BaseDriver):
