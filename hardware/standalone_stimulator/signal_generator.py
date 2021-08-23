@@ -91,8 +91,8 @@ class BaseDriver:
 
 class SignalGenerator(BaseDriver):
 
-    def __init__(self, out_chn=1, mode='sin', amp=0.5):
-        super().__init__()
+    def __init__(self, dev=None, out_chn=1, mode='sin', amp=0.5):
+        super().__init__(dev=dev)
         self.out_chn = out_chn
 
     def chn_check(self, chn):
@@ -110,12 +110,20 @@ class SignalGenerator(BaseDriver):
 
     def para_set(self, para_dict, chn=None):
         self.chn_check(chn)
-        special_dict = {'offset': 'VOLT:OFFS'}
+        special_dict = {'offset': 'VOLT:OFFS',
+                        'dc': 'APPL:DC 1,1,',
+                        'noise': ['APPL:NOIS', '']}
         for key, val in para_dict.items():
             if key not in special_dict.keys():
                 self.set_cmd(self.prefix + ':' + key[:4].upper() + ' ' + str(val).upper())
             else:
-                self.set_cmd(self.prefix + ':' + special_dict[key] + ' ' + str(val).upper())
+                if type(special_dict[key]) == list:
+                    suffix = ''
+                    for i, j in zip(special_dict[key], val):
+                        suffix += f'{i},{str(j).upper()}'
+                    self.set_cmd(self.prefix + ':' + suffix)
+                else:
+                    self.set_cmd(self.prefix + ':' + special_dict[key] + ' ' + str(val).upper())
 
             time.sleep(0.05)
 
