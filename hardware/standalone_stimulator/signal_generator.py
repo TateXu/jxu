@@ -111,6 +111,7 @@ class SignalGenerator(BaseDriver):
     def para_set(self, para_dict, chn=None):
         self.chn_check(chn)
         special_dict = {'offset': 'VOLT:OFFS',
+                        'sin': ['APPL:SIN', '', '', '', ''],
                         'dc': 'APPL:DC 1,1,',
                         'noise': ['APPL:NOIS', '']}
         for key, val in para_dict.items():
@@ -120,8 +121,9 @@ class SignalGenerator(BaseDriver):
                 if type(special_dict[key]) == list:
                     suffix = ''
                     for i, j in zip(special_dict[key], val):
-                        suffix += f'{i},{str(j).upper()}'
-                    self.set_cmd(self.prefix + ':' + suffix)
+                        suffix += f'{i} {str(j).upper()},'
+                    self.set_cmd(self.prefix + ':' + suffix[:-1])
+                    print(self.prefix + ':' + suffix[:-1])
                 else:
                     self.set_cmd(self.prefix + ':' + special_dict[key] + ' ' + str(val).upper())
 
