@@ -67,6 +67,7 @@ class tACSWindow():
 
         self.ch1_label.grid(row=0, column=2)
         self.ch2_label.grid(row=0, column=3)
+        self.output_label.grid(row=8, column=1)
 
         self.comp_list = np.asarray(
             [[self.amp_label, self.freq_label, self.phase_label,
@@ -126,7 +127,7 @@ class tACSWindow():
 
     def wave_display(self):
 
-        self.fig, self.ax = plt.subplots(2, 1)
+        self.fig, self.ax = plt.subplots(2, 1, facecolor=(1, 1, 1))
         self.ax[0].set_title('CH1')
         self.ax[0].set_facecolor('xkcd:black')
         self.ax[0].grid(True)
@@ -156,7 +157,7 @@ class tACSWindow():
             self.fig.canvas.draw()
 
         # plot_widget.pack(expand=True, side=LEFT)
-        plot_widget.grid(row=0, column=0, rowspan=9)
+        plot_widget.grid(row=1, column=0, rowspan=9)
         self.bt_out1 = tk.Button(self.window, text="CH1", command=lambda: self.signal_out(chn=1))
         self.bt_out1.grid(row=8, column=2)
         self.bt_out2 = tk.Button(self.window, text="CH2", command=lambda: self.signal_out(chn=2))
@@ -412,6 +413,10 @@ class tACSWindow():
         window.geometry("%dx%d+%d+%d" % (self.window_width, self.window_height,
                                          self.window_start_x,
                                          self.window_start_y))
+        self.window.configure(bg=self._from_rgb((255, 255, 255)))
+
+    def _from_rgb(self, rgb):
+        return "#%02x%02x%02x" % rgb
 
 window = tk.Tk()
 mywin = tACSWindow(window)
