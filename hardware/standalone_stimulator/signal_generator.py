@@ -6,17 +6,19 @@ import numpy as np
 
 class BaseDriver:
     """Convert the python command into low level I/O command (SCPI)
+    On Linux system, the usb device can be accessed as a device node
 
     Parameters
     ----------
-
-    Methods
-    -------
-
+    dev : str | None (default None)
+        The location of usbtmc device
 
     Attributes
     ----------
-
+    dev: str | None (default None)
+        The location of usbtmc device
+    dev_fd: int
+        File descriptor of the device
 
     Returns
     -------
@@ -24,59 +26,117 @@ class BaseDriver:
     """
 
     def __init__(self, dev=None):
+        self.dev_init(dev)
+        self.dev_fd = self.device_open()
+        self.info(dev_fd=self.dev_fd)
+
+    def dev_init(self, dev):
+        """ Initialize the devices based on given location
+
+        Parameters
+        ----------
+        dev : str | None (default None)
+            If None, then list all available USBTMC devices and select one
+            If a string is given, then check its correctness
+
+        Returns
+        -------
+
+        """
+
         if dev is None:
+            # List all avaiable devices
             dev_path_dict = {i: i_dev
                              for i, i_dev in enumerate(self.available_list())}
             print(dev_path_dict)
-            id_dev = input('Available devices are listed above and input the \
-                         corresponding key number to select the desired \
-                         device. Should you have no idea about which one to \
-                         choose, enter "?"\n')
-            if id_dev == '?':
-                id_dev = 0
-                pass
-            self.dev = dev_path_dict[int(id_dev)]
+
+            # Retrieve the devices info
+            for tmp_dev_id, tmp_dev_loc in dev_path_dict.items():
+                tmp_dev_fd = self.device_open(tmp_dev_loc)
+                tmp_msg = self.info(dev_fd=tmp_dev_fd)
+                print(f'Id: {tmp_dev_id}, Device info: {tmp_msg}')
+
+            dev_id = input('Available devices are listed above and input ' +
+                           'the corresponding id number to select the ' +
+                           'desired device.\n')
+            self.dev = dev_path_dict[int(dev_id)]
         else:
             assert os.path.exists(dev), 'Input device path does not exist, \
                 please double-check your input of parameter dev'
             self.dev = dev
 
-        self.device_open()
-        self.info()
+    def device_open(self, dev=None):
+        """ Open the device node
 
-    def device_open(self):
+        Parameters
+        ----------
+        dev : str | None (default None)
+            If None, then list all available USBTMC devices and select one
+            If a string is given, then check its correctness
+
+        Attributes
+        ----------
+        dev: str | None (default None)
+            The location of usbtmc device
+        dev_fd: int
+            File descriptor of the device
+
+        Returns
+        -------
+
+        """
+        if dev is None:
+            dev = self.dev
         try:
-            # use os.fstat to detect file is opened or not
-            # Only read and write access are needed
-            self.dev_fd = os.open(self.dev, os.O_RDWR)
-            dup_check = [os.fstat(i) == os.fstat(self.dev_fd) for i in range(
-                self.dev_fd)]
+            # Only read and write access are needed to open the device
+            dev_fd = os.open(dev, os.O_RDWR)
+        except OSError:
+            print('run the script with sudo')
+            # Check the current access of dev port and what is the current user
+            self.port_access(dev)
+            pwd = input('Please input the password for root accesss:\n')
+            # For convenience, give all users with read and write permission,
+            # the minimum permission should be 006
+            os.system(f'echo {pwd} | sudo -S chmod 666 {dev}')
+            dev_fd = os.open(dev, os.O_RDWR)
+        finally:
+            # Use os.fstat to detect file is opened or not
+            dup_check = [os.fstat(i) == os.fstat(dev_fd) for i in range(
+                dev_fd)]
             if any(dup_check):
                 print('The device is already opened, use the first opened fd')
-                self.dev_fd = dup_check.index(True)
-            print(f'Device is opened with file descriptor {self.dev_fd}')
-        except OSError:
-            self.port_access()  # what is the current access of that port and what is the current user
-            print('run the script with sudo')
+                dev_fd = dup_check.index(True)
+            print(f'Device is opened with file descriptor {dev_fd}')
 
-    def set_cmd(self, scpi_command):
-        # Why use utf8? Find SCPI doc
-        # Low level I/O, fd must be returned by os.open()
+            return dev_fd
+
+    def set_cmd(self, scpi_command, dev_fd=None):
+        # Low level I/O to send data stream to device
+        if dev_fd is None:
+            dev_fd = self.dev_fd
         assert type(scpi_command) == str, 'SCPI command MUST be written in string'
-        os.write(self.dev_fd, scpi_command.encode(encoding='utf8'))
+        os.write(dev_fd, scpi_command.encode(encoding='utf8'))
 
-    def query_cmd(self, length=1000):
-        return os.read(self.dev_fd, length)
+    def query_cmd(self, length=1000, dev_fd=None):
+        # Low level I/O to receive data stream from to device
+        if dev_fd is None:
+            dev_fd = self.dev_fd
+        return os.read(dev_fd, length)
 
-    def port_access(self):
-        access = os.stat(self.dev)
-        print(oct(access.st_mode))
+    def port_access(self, dev=None):
+        # Check current access of given port/dev/address
+        if dev is None:
+            self.dev = dev
+        access = os.stat(dev)
+        print(f'\nThe current access permission is: {oct(access.st_mode)}')
 
-    def info(self):
-        self.set_cmd("*IDN?")
-        return self.query_cmd(1000)
+    def info(self, dev_fd=None):
+        # Retrieve the device information
+        self.set_cmd("*IDN?", dev_fd=dev_fd)
+        return self.query_cmd(1000, dev_fd=dev_fd)
 
     def available_list(self, port_root='/dev'):
+        # List all available USBTMC devices that can be found under given root
         target_fd = os.popen(f'ls {port_root} |grep "usbtmc"')
         port_list = target_fd.readlines()
         # remove white space character '\n' and concatenate with port root
@@ -84,32 +144,65 @@ class BaseDriver:
         return port_list
 
     def reset(self):
+        # Reset the device
         self.set_cmd('*RST;*CLS;*OPC?')
         time.sleep(2.0)
         self.query_cmd()
         print("Reset is done!")
 
-class SignalGenerator(BaseDriver):
 
-    def __init__(self, dev=None, out_chn=1, mode='sin', amp=0.5):
+class SignalGenerator(BaseDriver):
+    """Convert the python command into low level I/O command (SCPI)
+    On Linux system, the usb device can be accessed as a device node
+
+    Parameters
+    ----------
+    dev : str | None (default None)
+        The location of usbtmc device
+    out_chn : 1 | 2 (default 1)
+        Output channel to configure
+    mode : 'sin' | 'sweep?'
+        !!! should be checked one by one and filling in
+    amp : float (default 0.5)
+        Amplitude of signal in the unit of Volt
+
+    Attributes
+    ----------
+    dev: str | None (default None)
+        The location of usbtmc device
+    dev_fd: int
+        File descriptor of the device
+
+    Returns
+    -------
+
+    """
+
+
+    def __init__(self, dev='/dev/usbtmc1', out_chn=1, mode='sin', amp=0.5):
         super().__init__(dev=dev)
         self.out_chn = out_chn
 
     def chn_check(self, chn):
+        # To ensure the output channel is not None
         if chn is None:
             chn = self.out_chn
         self.prefix = f':SOUR{chn}'
         return chn
 
     def status(self):
-        for i in range(1, 3):
+        # Get current configurations of both channels
+        # For sine mode, the parameters are in the order of frequency,
+        # amplitude, offset and phase
+        for i in [1, 2]:
             self.set_cmd(':SOURce' + str(i) + ':APPLy?')
             time.sleep(0.2)
-            print('CHN'+ str(i) +':')
+            print(f'CHN{str(i)}:')
             print(self.query_cmd())
 
     def para_set(self, para_dict, chn=None):
-        self.chn_check(chn)
+        # To conveniently configure all parameters in one python command
+        chn = self.chn_check(chn)
         special_dict = {'offset': 'VOLT:OFFS',
                         'sin': ['APPL:SIN', '', '', '', ''],
                         'dc': 'APPL:DC 1,1,',
@@ -126,7 +219,6 @@ class SignalGenerator(BaseDriver):
                     print(self.prefix + ':' + suffix[:-1])
                 else:
                     self.set_cmd(self.prefix + ':' + special_dict[key] + ' ' + str(val).upper())
-
             time.sleep(0.05)
 
     def query(self, cmd):
@@ -136,26 +228,115 @@ class SignalGenerator(BaseDriver):
         return self.query_cmd()
 
     def on(self, chn=None):
-        self.chn_check(chn)
+        # Turn on the output channel
+        chn = self.chn_check(chn)
         self.set_cmd(f':OUTPut{chn} ON')
 
     def off(self, chn=None):
-        self.chn_check(chn)
+        # Turn off the output channel
+        chn = self.chn_check(chn)
         self.set_cmd(':OUTPut' + str(chn) + ' OFF')
 
-    def impedance_check(self, chn=None):
-        self.chn_check(chn)
-        self.set_cmd(':OUTPut' + str(chn) + ':IMPedance?')
+    def amp(self, value=None, get_cfg=False, chn=None):
+        """ Configure the amplitude or get the current configuration
 
-    def sin_func(self, source=None, function='sin', frequency=50, phase=0, volt=[1, 0]):
-        self.cmd = init_sin_func(source=source, function=function, frequency=frequency, phase=phase, volt=volt)
+        Parameters
+        ----------
+        value : float | None (default None)
+            Value of amplitude to set
+        get_cfg : bool (default False)
+            If True, get the current amplitude. If False, set the amplitude
+        chn : 1 | 2 (default 1)
+            Output channel to configure
 
-    def fade_in_out(self, duration=0.5, tone='flat', vol=1, sps=512, freq=4.0):
-        if tone == 'flat':
+        """
+
+        assert value is not None or get_cfg, 'When get_cfg is False, valid \
+            value must be given'
+        chn = self.chn_check(chn)
+        if get_cfg:
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT?')
+            time.sleep(1.0)
+            print(self.query_cmd())
+        else:
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT ' + str(value))
+
+
+    def offset(self, value, query=None, chn=None):
+
+        chn = self.chn_check(chn)
+        if query is not None:
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT:OFFS?' )
+            time.sleep(1.0)
+            print(self.query_cmd())
+        else:
+            self.set_cmd(':SOUR' + str(chn) + ':VOLT:OFFS ' + str(value))
+
+
+    def frequency(self, value, query=None, chn=None):
+
+        chn = self.chn_check(chn)
+        if query is not None:
+            self.set_cmd(':SOUR' + str(chn) + ':FREQ?' )
+            time.sleep(1.0)
+            print(self.query_cmd())
+        else:
+            self.set_cmd(':SOUR' + str(chn) + ':FREQ ' + str(value))
+
+    def phase(self, value, query=None, chn=None):
+
+        chn = self.chn_check(chn)
+        if query is not None:
+            self.set_cmd(':SOUR' + str(chn) + ':PHAS?' )
+            time.sleep(1.0)
+            print(self.query_cmd())
+        else:
+            self.set_cmd(':SOUR' + str(chn) + ':PHAS ' + str(value))
+
+    def mode(self, value, query=None, chn=None):
+
+        chn = self.chn_check(chn)
+        if query is not None:
+            self.set_cmd(':SOUR' + str(chn) + ':FUNC?' )
+            time.sleep(1.0)
+            print(self.query_cmd())
+        else:
+            self.set_cmd(':SOUR' + str(chn) + ':FUNC ' + value.upper())
+
+
+    def fade_in_out_arb(self, duration=0.5, tendency='flat', sps=512, vol=1,
+                        freq=4.0):
+        """ An examplar function to realize the fade in/out of signal via
+        generating arbitrary data. This function should be used combining with
+        the arb_func() function.
+
+        Parameters
+        ----------
+        duration : float (default 0.5)
+            Duration of the fade in/out signal
+        tendency : 'flat' | 'increase' | 'decrease' (default 'flat')
+            'flat' indicates without fade in/out. 'increase' indicates fade in,
+            i.e., the signal amplitude increases. 'decrease' indicates fade out,
+            i.e., the signal amplitude decreases.
+        sps : int (default 512)
+            Samples per second, which defines the temporal resolution of signal
+        vol : int or float (default 1)
+            Amplitude/Volume of the sinusoid signal in the unit of Volt
+        freq : int or float (default 4.0)
+            Frequency of the sinusoid signal in the unit of Hz
+
+        Returns
+        -------
+        wf_int :
+            Fade in/out data stream in the type of int16
+
+        """
+
+        if tendency == 'flat':
             amp = vol
-        elif tone == 'increase':
+        elif tendency == 'increase':
             amp = np.linspace(vol*0.3, vol, duration * sps)
-        elif tone == 'decrease':
+        elif tendency == 'decrease':
             amp = np.linspace(vol, vol*0.3, duration * sps)
         else:
             raise ValueError("Wrong input of tone!")
@@ -164,11 +345,36 @@ class SignalGenerator(BaseDriver):
         esm = np.arange(duration * sps)
         wf = np.sin(2 * np.pi * esm * freq / sps)
         wf_slice = wf * amp
-        wf_int = np.int16((wf_slice+1)/2* 16383)
+        wf_int = np.int16((wf_slice+1)/2 * 16383)
 
         return wf_int
 
     def arb_func(self, data, chn=None):
+        """ An examplar function to realize the fade in/out of signal via
+        generating arbitrary data. This function should be used combining with
+        the arb_func() function.
+
+        Parameters
+        ----------
+        duration : float (default 0.5)
+            Duration of the fade in/out signal
+        tendency : 'flat' | 'increase' | 'decrease' (default 'flat')
+            'flat' indicates without fade in/out. 'increase' indicates fade in,
+            i.e., the signal amplitude increases. 'decrease' indicates fade out,
+            i.e., the signal amplitude decreases.
+        sps : int (default 512)
+            Samples per second, which defines the temporal resolution of signal
+        vol : int or float (default 1)
+            Amplitude/Volume of the sinusoid signal in the unit of Volt
+        freq : int or float (default 4.0)
+            Frequency of the sinusoid signal in the unit of Hz
+
+        Returns
+        -------
+        wf_int :
+            Fade in/out data stream in the type of int16
+
+        """
         chn = self.chn_check(chn)
         # self.clear_mem = '
         n_data = len(data)
@@ -193,115 +399,11 @@ class SignalGenerator(BaseDriver):
             self.status()
 
 
-    def amp(self, value, query=None, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        if query is not None:
-            self.set_cmd(':SOUR' + str(chn) + ':VOLT?' )
-            time.sleep(1.0)
-            print(self.query_cmd())
-        else:
-            self.set_cmd(':SOUR' + str(chn) + ':VOLT ' + str(value))
+    def impedance_check(self, chn=None):
+        self.chn_check(chn)
+        self.set_cmd(':OUTPut' + str(chn) + ':IMPedance?')
+
+    def sin_func(self, source=None, function='sin', frequency=50, phase=0, volt=[1, 0]):
+        self.cmd = init_sin_func(source=source, function=function, frequency=frequency, phase=phase, volt=volt)
 
 
-    def offset(self, value, query=None, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        if query is not None:
-            self.set_cmd(':SOUR' + str(chn) + ':VOLT:OFFS?' )
-            time.sleep(1.0)
-            print(self.query_cmd())
-        else:
-            self.set_cmd(':SOUR' + str(chn) + ':VOLT:OFFS ' + str(value))
-
-
-    def frequency(self, value, query=None, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        if query is not None:
-            self.set_cmd(':SOUR' + str(chn) + ':FREQ?' )
-            time.sleep(1.0)
-            print(self.query_cmd())
-        else:
-            self.set_cmd(':SOUR' + str(chn) + ':FREQ ' + str(value))
-
-    def phase(self, value, query=None, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        if query is not None:
-            self.set_cmd(':SOUR' + str(chn) + ':PHAS?' )
-            time.sleep(1.0)
-            print(self.query_cmd())
-        else:
-            self.set_cmd(':SOUR' + str(chn) + ':PHAS ' + str(value))
-
-    def mode(self, value, query=None, chn=None):
-        if chn == None:
-            chn = self.out_chn
-        if query is not None:
-            self.set_cmd(':SOUR' + str(chn) + ':FUNC?' )
-            time.sleep(1.0)
-            print(self.query_cmd())
-        else:
-            self.set_cmd(':SOUR' + str(chn) + ':FUNC ' + value.upper())
-
-
-class RigolFunctionGenerator(BaseDriver):
-    """Class to control a Rigol DG1062Z waveform generator"""
-    def __init__(self, device='/dev/usbtmc1'):
-        if(device == None):
-            listOfDevices = usbtmc.getDeviceList()
-            if(len(listOfDevices) == 0):
-                raise ValueError("There is no device to access")
-
-            self.device = listOfDevices[0]
-        else:
-            self.device = device
-
-        self.meas = usbtmc.UsbTmcDriver(self.device)
-
-        self.name = self.meas.getName()
-        print(self.name)
-
-    def write(self, command, out=True):
-        """Send an arbitrary command directly to the scope"""
-        self.meas.write(command, out)
-
-    def read(self):
-        """Read an arbitrary amount of data directly from the scope"""
-        return self.meas.read()
-
-    def reset(self):
-        """Reset the instrument"""
-        self.meas.sendReset()
-
-
-
-class RigolOscilloscope:
-    """Class to control a Rigol DG1062Z waveform generator"""
-    def __init__(self, device='/dev/usbtmc2'):
-        if(device == None):
-            listOfDevices = usbtmc.getDeviceList()
-            if(len(listOfDevices) == 1):
-                raise ValueError("There is no device to access")
-
-            self.device = listOfDevices[0]
-        else:
-            self.device = device
-
-        self.meas = usbtmc.UsbTmcDriver(self.device)
-
-        self.name = self.meas.getName()
-        print(self.name)
-
-    def write(self, command, out=True):
-        """Send an arbitrary command directly to the scope"""
-        self.meas.write(command, out)
-
-    def read(self):
-        """Read an arbitrary amount of data directly from the scope"""
-        return self.meas.read()
-
-    def reset(self):
-        """Reset the instrument"""
-        self.meas.sendReset()

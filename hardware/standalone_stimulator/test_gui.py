@@ -1,7 +1,7 @@
 #========================================
 # Author     : Jiachen Xu
 # Blog       : www.jiachenxu.net
-# Time       : 2021-08-19 20:13:48
+# Time       : 2021-08-10 20:13:48
 # Name       : test_gui.py
 # Version    : V1.0
 # Description: A minimal example for tkinter based gui
@@ -39,7 +39,8 @@ class tACSWindow():
         self.window.mainloop()
 
     def button_place(self):
-        root = '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/hardware/standalone_stimulator/'
+        root = '.'  #  '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/hardware/standalone_stimulator/'
+        self.fig_root = root
         subsps_coef = 2
 
         im_ch1 = tk.PhotoImage(file=f'{root}/Figures/label_ch1.png').subsample(subsps_coef)
@@ -204,8 +205,8 @@ class tACSWindow():
         # plot_widget.pack(expand=True, side=LEFT)
         plot_widget.grid(row=1, column=0, rowspan=7)
 
-        im_on = './Figures/button_on.png'
-        im_off = "./Figures/button_off.png"
+        im_on = f'{self.fig_root}/Figures/button_on.png'
+        im_off = f'{self.fig_root}/Figures/button_off.png'
         self.window.fig_on = tk.PhotoImage(file=im_on).subsample(3)
         self.window.fig_off = tk.PhotoImage(file=im_off).subsample(3)
 

@@ -113,6 +113,58 @@ ts_df = select_df[tmp_df['Metric'].str.contains("MDM").replace({True:False, Fals
 plt.rcParams["font.family"] = "serif"
 rcParams['font.family'] = 'serif'
 rcParams['font.serif'] = ['Times']
+
+
+
+fig_proj = plt.figure(figsize=(10, 5))
+axes_proj = fig_proj.add_axes([0.1, 0.15, 0.8, 0.7]) # left, bottom, width, height (range 0 to 1)
+
+proj_df = ts_df.loc[ts_df.Classifier == 'Linear'].copy()
+
+# axes_ts.set_title(f'Dataset {ds_name} with #channels={str(chn[id_ds])}')
+sns.boxplot(x='Dataset', y='Accuracy', hue='Metric', data=proj_df,
+            order=['BNCI2014001', 'Cho', 'Munich'],
+            palette=[sns.color_palette()[i] for i in [-1, 1, 2, 4]], ax=axes_proj)
+axes_proj.set_ylim([0.3, 1.05])
+
+xlabels_ticks = axes_proj.get_xticklabels()
+axes_proj.set_xticklabels(xlabels_ticks, fontsize=labelfontsize)
+axes_proj.set_xlabel('')
+
+axes_proj.set_xlabel('Dataset', fontsize=labelfontsize, fontweight='bold')
+
+# ylabels_ticks = axes_ts.get_yticklabels()
+axes_proj.set_yticklabels([str(i) for i in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]], fontsize=legendfontsize)
+
+ylabels = axes_proj.get_ylabel()
+axes_proj.set_ylabel(ylabels, fontsize=labelfontsize, fontweight='bold')
+
+handles, labels = axes_proj.get_legend_handles_labels()
+axes_proj.get_legend().remove()
+fig_proj.legend(handles, labels, loc='upper center', ncol=2, fontsize=legendfontsize, frameon=False)
+
+fig_proj.tight_layout()
+fig_proj.savefig(f'./smc/proj.pdf')
+del fig_proj, axes_proj
+import pdb;pdb.set_trace()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 for id_ds, (ds_name, _) in enumerate(dataset.items()):
 
     fig_ts = plt.figure(figsize=(10, 5))
