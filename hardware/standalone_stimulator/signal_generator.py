@@ -1,10 +1,71 @@
 import os
 import time
 import numpy as np
+import platform
 # Read more on http://blog.philippklaus.de/2012/05/rigol-dg1022-arbitrary-waveform-function-generator/
 # This file is similar to https://github.com/sbrinkmann/PyOscilloskop/blob/master/src/rigolScope.py
 
-class BaseDriver:
+class BaseDriver(object):
+    def __init__(self, dev=None):
+        pass
+
+    def set_cmd(self, scpi_command='', dev_fd=None):
+        pass
+    def read_cmd(self, length, dev_fd=None):
+        pass
+
+    def query_cmd(self, scpi_command, length, dev_fd=None):
+        pass
+
+
+class VISA(BaseDriver):
+    def __init__(self, dev=None):
+        try:
+            print('Attempt to use the VISA driver')
+            import pyvisa
+            self.rm = pyvisa.ResourceManager()
+        except ModuleNotFoundError:
+            print('---------------------------------------------------')
+            print('Use pip install -U pyvisa to install pyvisa package')
+            print('---------------------------------------------------')
+
+            raise ModuleNotFoundError
+        self.__dev_init(dev=dev)
+
+    def __dev_init(self, dev):
+        if dev is None:
+            dev_name_list = self.rm.list_resources()
+
+            dev_instance_list = []
+            for tmp_dev_id, tmp_dev_name in enumerate(dev_name_list):
+                try:
+                    tmp_dev = self.rm.open_resource(tmp_dev_name)
+                    tmp_msg = tmp_dev.query("*IDN?")
+                    print(f'Id: {tmp_dev_id}, Device info: {tmp_msg}')
+                except:
+                    tmp_dev = None
+                    print(f'Id: {tmp_dev_id} is not target device')
+                finally:
+                    dev_instance_list.append(tmp_dev)
+
+            dev_id = input('Available devices are listed above and input ' +
+                           'the corresponding id number to select the ' +
+                           'desired device.\n')
+            self.dev = dev_instance_list[int(dev_id)]
+        else:
+            self.dev = self.rm.open_resource[dev]
+
+    def set_cmd(self, scpi_command='', dev_fd=None):
+        return self.dev.write(scpi_command)
+
+    def read_cmd(self, length, dev_fd=None):
+        return self.dev.read()
+
+    def query_cmd(self, scpi_command, length, dev_fd=None):
+        return self.dev.query(scpi_command)
+
+
+class USBTMC(BaseDriver):
     """Convert the python command into low level I/O command (SCPI)
     On Linux system, the usb device can be accessed as a device node
 
@@ -26,11 +87,11 @@ class BaseDriver:
     """
 
     def __init__(self, dev=None):
-        self.dev_init(dev)
+        self.__dev_init(dev)
         self.dev_fd = self.device_open()
-        self.info(dev_fd=self.dev_fd)
+        self.__info(dev_fd=self.dev_fd)
 
-    def dev_init(self, dev):
+    def __dev_init(self, dev):
         """ Initialize the devices based on given location
 
         Parameters
@@ -47,13 +108,13 @@ class BaseDriver:
         if dev is None:
             # List all avaiable devices
             dev_path_dict = {i: i_dev
-                             for i, i_dev in enumerate(self.available_list())}
+                             for i, i_dev in enumerate(self.device_list())}
             print(dev_path_dict)
 
             # Retrieve the devices info
             for tmp_dev_id, tmp_dev_loc in dev_path_dict.items():
                 tmp_dev_fd = self.device_open(tmp_dev_loc)
-                tmp_msg = self.info(dev_fd=tmp_dev_fd)
+                tmp_msg = self.__info(dev_fd=tmp_dev_fd)
                 print(f'Id: {tmp_dev_id}, Device info: {tmp_msg}')
 
             dev_id = input('Available devices are listed above and input ' +
@@ -110,19 +171,6 @@ class BaseDriver:
 
             return dev_fd
 
-    def set_cmd(self, scpi_command, dev_fd=None):
-        # Low level I/O to send data stream to device
-        if dev_fd is None:
-            dev_fd = self.dev_fd
-        assert type(scpi_command) == str, 'SCPI command MUST be written in string'
-        os.write(dev_fd, scpi_command.encode(encoding='utf8'))
-
-    def query_cmd(self, length=1000, dev_fd=None):
-        # Low level I/O to receive data stream from to device
-        if dev_fd is None:
-            dev_fd = self.dev_fd
-        return os.read(dev_fd, length)
-
     def port_access(self, dev=None):
         # Check current access of given port/dev/address
         if dev is None:
@@ -130,12 +178,7 @@ class BaseDriver:
         access = os.stat(dev)
         print(f'\nThe current access permission is: {oct(access.st_mode)}')
 
-    def info(self, dev_fd=None):
-        # Retrieve the device information
-        self.set_cmd("*IDN?", dev_fd=dev_fd)
-        return self.query_cmd(1000, dev_fd=dev_fd)
-
-    def available_list(self, port_root='/dev'):
+    def device_list(self, port_root='/dev'):
         # List all available USBTMC devices that can be found under given root
         target_fd = os.popen(f'ls {port_root} |grep "usbtmc"')
         port_list = target_fd.readlines()
@@ -143,15 +186,43 @@ class BaseDriver:
         port_list = [f'{port_root}/{x.strip()}' for x in port_list]
         return port_list
 
+
+    def set_cmd(self, scpi_command, dev_fd=None):
+        # Low level I/O to send data stream to device
+        if dev_fd is None:
+            dev_fd = self.dev_fd
+        assert type(scpi_command) == str, 'SCPI command MUST be written in string'
+        os.write(dev_fd, scpi_command.encode(encoding='utf8'))
+
+    def read_cmd(self, length=1000, dev_fd=None):
+        # Low level I/O to receive data stream from to device
+        if dev_fd is None:
+            dev_fd = self.dev_fd
+        return os.read(dev_fd, length)
+
+    def query(self, cmd, length=1000, dev_fd=None):
+        self.set_cmd(cmd, dev_fd=dev_fd)
+        time.sleep(0.2)
+        print(self.read_cmd(length=length, dev_fd=dev_fd))
+
+        return self.read_cmd(length=length, dev_fd=dev_fd)
+
+
+    def __info(self, dev_fd=None):
+        # Retrieve the device information
+        self.set_cmd("*IDN?", dev_fd=dev_fd)
+        return self.read_cmd(1000, dev_fd=dev_fd)
+
+
     def reset(self):
         # Reset the device
         self.set_cmd('*RST;*CLS;*OPC?')
         time.sleep(2.0)
-        self.query_cmd()
+        self.read_cmd()
         print("Reset is done!")
 
 
-class SignalGenerator(BaseDriver):
+class SignalGenerator(USBTMC, VISA):
     """Convert the python command into low level I/O command (SCPI)
     On Linux system, the usb device can be accessed as a device node
 
@@ -177,11 +248,39 @@ class SignalGenerator(BaseDriver):
     -------
 
     """
+    def __init__(self, dev='/dev/usbtmc1', protocol=None, out_chn=1,
+                 mode='sin', amp=0.5):
+        self.os_ver = platform.platform()
+        if protocol is None:
+            if 'Linux' in self.os_ver:
+                protocol = 'USBTMC'
+            elif 'Windows' in self.os_ver:
+                protocol = 'VISA'
+            else:
+                raise ValueError('Unsupported Operation System')
 
+        if protocol == 'USBTMC':
+            # use super to call base and to avoid call VISA
+            self.protocol = super()
+        elif protocol == 'VISA':
+            # use super to call base and to avoid call USBTMC
+            self.protocol = super(USBTMC, self)
+        else:
+            raise ValueError('Unsupported protocol.')
+        self.protocol.__init__(dev=dev)
 
-    def __init__(self, dev='/dev/usbtmc1', out_chn=1, mode='sin', amp=0.5):
-        super().__init__(dev=dev)
         self.out_chn = out_chn
+        self.amp = amp
+
+    def set_cmd(self, scpi_command, dev_fd=None):
+        self.protocol.set_cmd(scpi_command=scpi_command, dev_fd=dev_fd)
+
+    def read_cmd(self, length=1000, dev_fd=None):
+        self.protocol.read_cmd(length=length, dev_fd=dev_fd)
+
+    def query_cmd(self, scpi_command, length=1000, dev_fd=None):
+        self.protocol.query_cmd(scpi_command=scpi_command, length=length,
+                                dev_fd=dev_fd)
 
     def chn_check(self, chn):
         # To ensure the output channel is not None
@@ -220,12 +319,6 @@ class SignalGenerator(BaseDriver):
                 else:
                     self.set_cmd(self.prefix + ':' + special_dict[key] + ' ' + str(val).upper())
             time.sleep(0.05)
-
-    def query(self, cmd):
-        self.set_cmd(cmd)
-        time.sleep(0.2)
-        print(self.query_cmd())
-        return self.query_cmd()
 
     def on(self, chn=None):
         # Turn on the output channel
