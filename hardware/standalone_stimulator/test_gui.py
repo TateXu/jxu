@@ -172,8 +172,9 @@ class tACSWindow():
 
     def wave_display(self):
 
-        self.fig, self.ax = plt.subplots(2, 1, facecolor=(1, 1, 1),
-                                         figsize=(self.window_width*0.4/100, self.window_height*0.8/100))
+        # self.fig, self.ax = plt.subplots(2, 1, facecolor=(1, 1, 1),
+        #                                  figsize=(self.window_width*0.4/100, self.window_height*0.8/100))
+        self.fig, self.ax = plt.subplots(2, 1, facecolor=(1, 1, 1))
         self.ax[0].set_title('CH1')
         self.ax[0].set_facecolor('xkcd:black')
         self.ax[0].grid(True)
@@ -444,9 +445,9 @@ class tACSWindow():
         self.window_height = screen_height * .2
         self.window_start_x = 100
         self.window_start_y = 100
-        window.geometry("%dx%d+%d+%d" % (self.window_width, self.window_height,
-                                         self.window_start_x,
-                                         self.window_start_y))
+#         window.geometry("%dx%d+%d+%d" % (self.window_width, self.window_height,
+                                         # self.window_start_x,
+                                         # self.window_start_y))
         self.window.configure(bg=self._from_rgb((255, 255, 255)))
 
     def _from_rgb(self, rgb):
