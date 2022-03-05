@@ -6,24 +6,44 @@
 # Version    : V1.0
 # Description: .
 #========================================
+# importing only those functions which
+# are needed
+from tkinter import Tk, mainloop, TOP
+from tkinter.ttk import Button
+from tkinter.messagebox import _show
 
-from tkinter import *
-
+# creating tkinter window
 root = Tk()
-root.geometry('250x150')
 
-button1 = Button(text="Left")
-button1.pack(side = LEFT)
+button = Button(root, text = 'Geeks')
+button.pack(side = TOP, pady = 5)
 
-button2 = Button(text="Top")
-button2.pack(side = TOP)
+# in after method 5000 milliseconds
+# is passed i.e after 5 seconds
+# a message will be prompted
+root.after(5000, lambda : _show('Title', 'Prompting after 5 seconds'))
 
-button3 = Button(text="Right")
-button3.pack(side = RIGHT)
-button4 = Button(text="Bottom")
-button4.pack(side = BOTTOM)
+# Destroying root window after 6.7 seconds
+root.after(6700, root.destroy)
 
-root.mainloop()
+mainloop()
+# from tkinter import *
+
+# root = Tk()
+# root.geometry('250x150')
+
+# button1 = Button(text="Left")
+# button1.pack(side = LEFT)
+
+# button2 = Button(text="Top")
+# button2.pack(side = TOP)
+
+# button3 = Button(text="Right")
+# button3.pack(side = RIGHT)
+# button4 = Button(text="Bottom")
+# button4.pack(side = BOTTOM)
+
+# root.mainloop()
 # from tkinter import *
 
 # def donothing():
