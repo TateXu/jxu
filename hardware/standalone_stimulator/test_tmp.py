@@ -11,22 +11,81 @@
 from tkinter import Tk, mainloop, TOP
 from tkinter.ttk import Button
 from tkinter.messagebox import _show
+import tkinter as tk
+from tkinter.messagebox import showinfo
 
+root = tk.Tk()
+choices = ('network one', 'network two', 'network three')
+var = tk.StringVar(root)
+
+
+def refresh():
+    # Reset var and delete all old options
+    var.set('')
+    network_select['menu'].delete(0, 'end')
+
+    # Insert list of new options (tk._setit hooks them up to var)
+    new_choices = ('one', 'two', 'three')
+    for choice in new_choices:
+        network_select['menu'].add_command(label=choice, command=tk._setit(var, choice))
+    showinfo(title='test', message='update')
+    print(var.get())
+
+network_select = tk.OptionMenu(root, var, *choices)
+network_select.grid()
+
+# I made this quick refresh button to demonstrate
+tk.Button(root, text='Refresh', command=refresh).grid()
+
+root.mainloop()
+
+#========================================
+# import tkinter as tk
+
+
+# window = tk.Tk()
+# window.title('My Window')
+# window.geometry('100x100')
+
+# l = tk.Label(window, bg='white', width=20, text='empty')
+# l.pack()
+
+# def print_selection():
+    # if (var1.get() == 1) & (var2.get() == 0):
+        # l.config(text='I love Python ')
+    # elif (var1.get() == 0) & (var2.get() == 1):
+        # l.config(text='I love C++')
+    # elif (var1.get() == 0) & (var2.get() == 0):
+        # l.config(text='I do not anything')
+    # else:
+        # l.config(text='I love both')
+
+# var1 = tk.IntVar()
+# var2 = tk.IntVar()
+# c1 = tk.Checkbutton(window, text='Python',variable=var1, onvalue=1, offvalue=0, command=print_selection)
+# c1.pack()
+# c2 = tk.Checkbutton(window, text='C++',variable=var2, onvalue=1, offvalue=0, command=print_selection)
+# c2.pack()
+
+# window.mainloop()
+#========================================
 # creating tkinter window
-root = Tk()
+# root = Tk()
 
-button = Button(root, text = 'Geeks')
-button.pack(side = TOP, pady = 5)
+# button = Button(root, text = 'Geeks')
+# button.pack(side = TOP, pady = 5)
 
-# in after method 5000 milliseconds
-# is passed i.e after 5 seconds
-# a message will be prompted
-root.after(5000, lambda : _show('Title', 'Prompting after 5 seconds'))
+# # in after method 5000 milliseconds
+# # is passed i.e after 5 seconds
+# # a message will be prompted
+# root.after(5000, lambda : _show('Title', 'Prompting after 5 seconds'))
 
-# Destroying root window after 6.7 seconds
-root.after(6700, root.destroy)
+# # Destroying root window after 6.7 seconds
+# root.after(6700, root.destroy)
 
-mainloop()
+# mainloop()
+
+#========================================
 # from tkinter import *
 
 # root = Tk()

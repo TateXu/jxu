@@ -6,7 +6,10 @@
 # Version    : V1.0
 # Description: A minimal example for tkinter based gui
 #========================================
+
+import sys, os
 import numpy as np
+import platform
 import time
 
 import matplotlib
@@ -16,7 +19,8 @@ import matplotlib.pyplot as plt
 
 import tkinter as tk
 import tkinter.font as tkFont
-from tkinter import Label, Entry, Button, OptionMenu, StringVar, END
+from tkinter import (Label, Entry, Button, Checkbutton, OptionMenu,
+                     StringVar, messagebox, simpledialog, END)
 
 from PIL import Image, ImageTk
 
@@ -24,36 +28,34 @@ from signal_generator import SignalGenerator as SG
 
 class tACSWindow():
     def __init__(self, window, fontsize=20):
+
+        self.fontStyle = tkFont.Font(family="Arial", size=fontsize) # "Lucida Grande"
+        is_conda = os.path.exists(os.path.join(sys.prefix, 'conda-meta'))
+        print(is_conda)
+        if is_conda:
+            messagebox.showwarning('Warning', 'The font of GUI cannot be rendered by Anaconda Python. For better visulization, please use other version of Python')
         self.window = window
         self.window_geometry()
-        self.fontStyle = tkFont.Font(family="Times New Roman", size=fontsize) # "Lucida Grande"
         self.button_place()
         self.wave_display()
-        self.dev_available = False
-        try:
-            self.dev_connect()
-        except:
-            print('No connected device')
-            pass
-
         self.window.mainloop()
 
     def button_place(self):
-        root = '.'  # '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/hardware/standalone_stimulator/'
+        root = '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/hardware/standalone_stimulator/'
         self.fig_root = root
         subsps_coef = 2
 
         im_on = f'{self.fig_root}/Figures/button_on.png'
         im_off = f'{self.fig_root}/Figures/button_off.png'
-        im_update = "./Figures/button_update.png"
+        im_update = f'{self.fig_root}/Figures/button_update.png'
         self.window.fig_on = tk.PhotoImage(file=im_on).subsample(3)
         self.window.fig_off = tk.PhotoImage(file=im_off).subsample(3)
         self.window.fig_update = tk.PhotoImage(file=im_update).subsample(3)
 
         self.para_widgets_mat = np.asarray(
-            [['Device List', [''], None, 'CH1', 'CH2'],
-             [(self.window.fig_on, print('111')), None, 'Stimulation Type', ['tACS', 'tDCS', 'tRNS', 'Arb'], ['tACS', 'tDCS', 'tRNS', 'Arb']],
-             [None, None, 'Arbitrary Data', 0, 0],
+            [[{'VISA': self.dev_list}, {'USBTMC': self.dev_list}, None, 'CH1', 'CH2'],
+             ['Device List', [''], 'Stimulation Type', ['tACS', 'tDCS', 'tRNS', 'Arb'], ['tACS', 'tDCS', 'tRNS', 'Arb']],
+             [(self.window.fig_on, lambda: self.dev_connect()), None, 'Arbitrary Data', 0, 0],
              [None, None, 'Voltage', 1, 1],
              [None, None, 'Frequency', 10, 10],
              [None, None, 'Phase', 0, 0],
@@ -61,7 +63,7 @@ class tACSWindow():
              [None, None, 'Fade In/Out', 5, 5],
              [None, None, 'Stim. Duration', 5, 5],
              [(self.window.fig_update, self.para_update), None, 'Output', (self.window.fig_off, lambda: self.signal_out(chn=1), 'bt_out'), (self.window.fig_off, lambda: self.signal_out(chn=2), 'bt_out')],
-             [None, None, 'Timer', '', '']],
+             [(self.window.fig_update, self.refresh), None, 'Timer', '', '']],
             dtype='object')
         self.para_label = {'Device List': 'label_ch1.png',
                            'CH1': 'label_ch1.png',
@@ -82,7 +84,7 @@ class tACSWindow():
 
         self.entry_row_start, self.entry_col_start = 2, 3
         row_start, col_start = 0, 0
-        self.click_list, self.bt_out = [], []
+        self.click_list, self.bt_out, self.check_list = [], [], []
         for (row, col), grid_val in np.ndenumerate(self.para_widgets_mat):
             if grid_val is None:
                 # None value means no button neither entry
@@ -94,7 +96,7 @@ class tACSWindow():
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
             elif grid_type == str:
                 if grid_val == '':
-                    tmp_obj = Label(self.window)
+                    tmp_obj = Label(self.window, font=self.fontStyle)
                 else:
                     im_obj = tk.PhotoImage(file=f'{root}/Figures/{self.para_label[grid_val]}').subsample(subsps_coef)
                     tmp_obj = Label(self.window, image=im_obj, font=self.fontStyle, bg="white")
@@ -106,7 +108,7 @@ class tACSWindow():
                 tmp_stim_menu = OptionMenu(self.window, tmp_click, *grid_val,
                                            command=self.entry_state_update)
                 tmp_stim_menu.grid(row=row+row_start, column=col+col_start,
-                                   ipadx=90)
+                                   ipadx=90, sticky='ew')
                 tmp_stim_menu.configure(font=self.fontStyle)
 
                 tmp_menu_opt = self.window.nametowidget(tmp_stim_menu.menuname)
@@ -114,6 +116,8 @@ class tACSWindow():
                 tmp_obj = [tmp_stim_menu, tmp_menu_opt]
                 if 'tACS' in grid_val:
                     self.click_list.append(tmp_click)
+                else:
+                    self.dev_click = tmp_click
                 del tmp_click
             elif grid_type == tuple:
                 tmp_obj = Button(self.window, image=grid_val[0], bg="white", command=grid_val[1])
@@ -121,6 +125,15 @@ class tACSWindow():
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
                 if len(grid_val) == 3:
                     self.bt_out.append(tmp_obj)
+            elif grid_type == dict:
+                tmp_check = tk.IntVar()
+                tmp_obj = Checkbutton(self.window, variable=tmp_check,
+                                      text=list(grid_val.keys())[0], onvalue=1,
+                                      offvalue=0, bg="white",
+                                      command=list(grid_val.values())[0],
+                                      font=self.fontStyle)
+                tmp_obj.grid(row=row+row_start, column=col+col_start)
+                self.check_list.append(tmp_check)
             else:
                 import pdb;pdb.set_trace()
                 raise ValueError('Unsupported Variable Value')
@@ -151,10 +164,64 @@ class tACSWindow():
             for id_entry, entry_state in enumerate(state_list):
                 self.para_widgets_mat_obj[id_entry+self.entry_row_start, id_click+self.entry_col_start].config(state=entry_state)
 
+    def dev_list(self):
+        visa_status = self.check_list[0].get()
+        usbtmc_status = self.check_list[1].get()
+        self.os_ver = platform.platform()
+        if 'Windows' in self.os_ver and usbtmc_status:
+            messagebox.showerror(title='Warning', message='USBTMC protocol' +
+                                 ' is not available on Windows system. Use ' +
+                                 'the default VISA protocol')
+            # click yes in msg box, should toggle a button which disable usbtmc
+            usbtmc_status = 0
+
+        if visa_status and usbtmc_status:
+            messagebox.showwarning(
+                title='Warning', message='Please select only one protocol!')
+            return None
+        elif not visa_status and usbtmc_status:
+            from signal_generator import USBTMC
+            import os
+
+            tmp = USBTMC(inst=False)
+            for i, i_dev in enumerate(tmp.available_port_list()):
+                try:
+                    _ = os.open(i_dev, os.O_RDWR)
+                except OSError:
+                    pwd = simpledialog.askstring(title="Test", prompt='Enter your root pwd to change port access')
+                    os.system(f'echo {pwd} | sudo -S chmod 666 {i_dev}')
+
+            self.all_devices, self.dev_inst_list = USBTMC(inst=False).dev_list()
+            self.protocol = 'USBTMC'
+        elif visa_status and not usbtmc_status:
+            from signal_generator import VISA
+            self.all_devices, self.dev_inst_list = VISA(inst=False).dev_list()
+            self.protocol = 'VISA'
+        else:
+            return None
+
+        self.dev_click.set('')
+        menu = self.para_widgets_mat_obj[1, 1][0]['menu']
+        menu.delete(0, 'end')
+        for choice in self.all_devices:
+            menu.add_command(label=choice, command=tk._setit(self.dev_click, choice))
+
+        self.refresh()
+
 
     def dev_connect(self):
-        self.sig_gen = SG(dev='/dev/usbtmc1')
+        click_val = self.dev_click.get()
+        ind_ = self.all_devices.index(click_val)
+
+        dev = self.dev_inst_list[ind_]
+        if dev is None:
+            messagebox.showwarning('Warning', 'No available devices!')
+        print(ind_)
+
+        self.sig_gen = SG(dev=dev, protocol=self.protocol)
         self.dev_available = True
+
+
 
     def wave_display(self):
 
@@ -193,7 +260,7 @@ class tACSWindow():
             self.fig.canvas.draw()
 
         # plot_widget.pack(expand=True, side=LEFT)
-        plot_widget.grid(row=2, column=0, rowspan=7, columnspan=2, sticky='nsew')
+        plot_widget.grid(row=3, column=0, rowspan=6, columnspan=2, sticky='nsew')
 
         # self.window.mainloop()
 
@@ -223,6 +290,8 @@ class tACSWindow():
                 self.noise_update(chn=id_click+1)
             elif click_val == 'Arb':
                 self.arb_update(chn=id_click+1)
+
+
 
     def load_entry(self):
         def customize_float(string_val):
@@ -279,11 +348,24 @@ class tACSWindow():
         self.scpi_cmd_ch = {'noise': [amp, offset]}
 
         if self.dev_available:
-            print(self.scpi_cmd_ch)
             self.sig_gen.para_set(self.scpi_cmd_ch, chn=chn)
 
     def arb_update(self, chn):
-        pass
+        # read file
+        import pickle
+        self.load_entry()
+        arb_data_path = self.entry_data[0, chn-1]
+        with open(arb_data_path, 'rb') as f:
+            arb_data = pickle.load(f)
+
+        len_data = len(arb_data['data'])
+        t = np.linspace(0.0, len_data/arb_data['sps'], len_data)
+        self.ax_plt(t, arb_data['data'], chn)
+
+        if self.dev_available:
+            self.sig_gen.sps = arb_data['sps']
+            self.sig_gen.arb_func(data=arb_data['data'], chn=chn)
+
 
     def signal_out(self, chn):
         self.load_entry()
@@ -312,7 +394,7 @@ class tACSWindow():
 
             if self.dev_available:
                 if click_val == 'tACS':
-                    self.sig_gen.amp(val, chn=chn)
+                    self.sig_gen.amp(value=val, chn=chn)
                 elif click_val == 'tDCS':
                     self.sig_gen.para_set({'offset': val}, chn=chn)
                 elif click_val == 'tRNS':
@@ -325,21 +407,20 @@ class tACSWindow():
             if status == 'start':
                 # self.sig_gen.amp(0.002, chn=chn)
                 amp_adjust(0.002, chn=chn)
-                state_switch(button_out, channel=chn)
                 if self.dev_available:
-                    self.sig_gen.on(chn=chn)
+                    state_switch(button_out, channel=chn)
                 for stim_val in step_list:
-                    amp_adjust(val=stim_val, chn=chn)
                     time.sleep(sleep_dur)
+                    amp_adjust(val=stim_val, chn=chn)
             elif status == 'finish':
                 for stim_val in step_list[::-1]:
                     amp_adjust(val=stim_val, chn=chn)
                     # self.sig_gen.amp(stim_val, chn=chn)
                     time.sleep(sleep_dur)
 
-                state_switch(button_out, channel=chn)
+                print('off output')
                 if self.dev_available:
-                    self.sig_gen.off(chn=chn)
+                    state_switch(button_out, channel=chn)
 
 
         def stim_timer(chn, duration):
@@ -360,40 +441,39 @@ class tACSWindow():
             state_switch(button_out, channel=chn)
         elif fade_dur != '':
             assert stim_dur != '', 'When fade is non-empty, duration also must be non-empty'
+            print(float(fade_dur))
             fade(amp=amp, chn=chn, status='start', fade_dur=float(fade_dur))
             stim_timer(chn=chn, duration=float(stim_dur))
-            state_switch(button_out, channel=chn)
             fade(amp=amp, chn=chn, status='finish', fade_dur=float(fade_dur))
-            state_switch(button_out, channel=chn)
         else:
-            print('-----')
-            print(button_out['state'])
             state_switch(button_out, channel=chn)
-            print('-----')
-            print(button_out['state'])
             stim_timer(chn=chn, duration=float(stim_dur))
-            print('Finish stim')
-            print('-----')
-            print(button_out['state'])
             state_switch(button_out, channel=chn)
-            print('-----')
-            print(button_out['state'])
 
-    def window_geometry(self):
+    def refresh(self):
+        self.para_widgets_mat_obj[1, 1][0].config(width=2)
+        self.window_ratio()
+        self.window.update()
+
+    def window_ratio(self):
         for id_row, row in enumerate([1]*7):
             self.window.grid_rowconfigure(id_row, weight=row)
-        for id_col, col in enumerate([5, 2, 2, 2]):
+        for id_col, col in enumerate([2, 2, 2, 2, 2]):
             self.window.grid_columnconfigure(id_col, weight=col)
 
+    def window_geometry(self):
+        self.window_ratio()
         screen_width = self.window.winfo_screenwidth()
         screen_height = self. window.winfo_screenheight()
-        self.window_width = screen_width * .3
-        self.window_height = screen_height * .2
-        self.window_start_x = 100
-        self.window_start_y = 100
-#         window.geometry("%dx%d+%d+%d" % (self.window_width, self.window_height,
-                                         # self.window_start_x,
-                                         # self.window_start_y))
+
+        ratio = (screen_width*9) / (screen_height*16)
+        self.window_width = screen_width * .5 / ratio
+        self.window_height = screen_height * .5
+        self.window_start_x = screen_width * .2
+        self.window_start_y = screen_height * .2
+        window.geometry("%dx%d+%d+%d" % (self.window_width, self.window_height,
+                                         self.window_start_x,
+                                         self.window_start_y))
         self.window.configure(bg=self._from_rgb((255, 255, 255)))
 
     def _from_rgb(self, rgb):
@@ -401,7 +481,5 @@ class tACSWindow():
 
 window = tk.Tk()
 mywin = tACSWindow(window)
-window.title('Hello Python')
-mywin.wave_display()
-window.mainloop()
+
 

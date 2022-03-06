@@ -19,7 +19,7 @@ class BaseDriver(object):
 
 
 class VISA(BaseDriver):
-    def __init__(self, dev=None):
+    def __init__(self, dev=None, inst=True):
         try:
             print('Attempt to use the VISA driver')
             import pyvisa
@@ -30,7 +30,8 @@ class VISA(BaseDriver):
             print('---------------------------------------------------')
 
             raise ModuleNotFoundError
-        self.__dev_init(dev=dev)
+        if inst:
+            self.__dev_init(dev=dev)
 
     def __dev_init(self, dev):
         if dev is None:
@@ -53,7 +54,28 @@ class VISA(BaseDriver):
                            'desired device.\n')
             self.dev = dev_instance_list[int(dev_id)]
         else:
-            self.dev = self.rm.open_resource[dev]
+            self.dev = self.rm.open_resource(dev)
+
+    def dev_list(self):
+        dev_name_list = self.rm.list_resources()
+
+        dev_instance_list = []
+        dev_info_list = []
+        for tmp_dev_id, tmp_dev_name in enumerate(dev_name_list):
+            try:
+                tmp_dev = self.rm.open_resource(tmp_dev_name)
+                tmp_msg = tmp_dev.query("*IDN?")
+                info = f'Id: {tmp_dev_id}, Device info: {tmp_msg}'
+            except:
+                tmp_dev = None
+                info = f'Id: {tmp_dev_id}, Device info: Uncommunicative, not target device'
+            finally:
+                print(info)
+                dev_instance_list.append(tmp_dev_name)
+                dev_info_list.append(info)
+
+        return dev_info_list, dev_instance_list
+
 
     def set_cmd(self, scpi_command='', dev_fd=None):
         return self.dev.write(scpi_command)
@@ -86,10 +108,11 @@ class USBTMC(BaseDriver):
 
     """
 
-    def __init__(self, dev=None):
-        self.__dev_init(dev)
-        self.dev_fd = self.device_open()
-        self.__info(dev_fd=self.dev_fd)
+    def __init__(self, dev=None, inst=True):
+        if inst:
+            self.__dev_init(dev)
+            self.dev_fd = self.device_open()
+            self.__info(dev_fd=self.dev_fd)
 
     def __dev_init(self, dev):
         """ Initialize the devices based on given location
@@ -108,7 +131,7 @@ class USBTMC(BaseDriver):
         if dev is None:
             # List all avaiable devices
             dev_path_dict = {i: i_dev
-                             for i, i_dev in enumerate(self.device_list())}
+                             for i, i_dev in enumerate(self.available_port_list())}
             print(dev_path_dict)
 
             # Retrieve the devices info
@@ -178,13 +201,29 @@ class USBTMC(BaseDriver):
         access = os.stat(dev)
         print(f'\nThe current access permission is: {oct(access.st_mode)}')
 
-    def device_list(self, port_root='/dev'):
+    def available_port_list(self, port_root='/dev'):
         # List all available USBTMC devices that can be found under given root
         target_fd = os.popen(f'ls {port_root} |grep "usbtmc"')
         port_list = target_fd.readlines()
         # remove white space character '\n' and concatenate with port root
         port_list = [f'{port_root}/{x.strip()}' for x in port_list]
         return port_list
+
+    def dev_list(self):
+        dev_path_dict = {i: i_dev
+                         for i, i_dev in enumerate(self.available_port_list())}
+
+        # Retrieve the devices info
+        dev_instance_list, dev_info_list = [], []
+        for tmp_dev_id, tmp_dev_loc in dev_path_dict.items():
+            tmp_dev_fd = self.device_open(tmp_dev_loc)
+            tmp_msg = self.__info(dev_fd=tmp_dev_fd)
+            info = f'Id: {tmp_dev_id}, Device info: {tmp_msg}'
+            dev_instance_list.append(tmp_dev_loc)
+            dev_info_list.append(info)
+
+        return dev_info_list, dev_instance_list
+
 
 
     def set_cmd(self, scpi_command, dev_fd=None):
@@ -270,7 +309,6 @@ class SignalGenerator(USBTMC, VISA):
         self.protocol.__init__(dev=dev)
 
         self.out_chn = out_chn
-        self.amp = amp
 
     def set_cmd(self, scpi_command, dev_fd=None):
         self.protocol.set_cmd(scpi_command=scpi_command, dev_fd=dev_fd)
@@ -468,17 +506,22 @@ class SignalGenerator(USBTMC, VISA):
             Fade in/out data stream in the type of int16
 
         """
+
+        # 0 - 16383 : -2.5V - 2.5V
         chn = self.chn_check(chn)
         # self.clear_mem = '
+        if np.amin(data) < -2.5 or np.amax(data) > 2.5:
+            raise ValueError('Input must be between -2.5V to 2.5V')
+        data = (np.asarray(data) + 2.5) * 16383 / 5
         n_data = len(data)
         self.set_cmd(':SOUR' + str(chn) + ':APPL:ARB ' + str(self.sps))
-        time.sleep(0.2)
+        time.sleep(0.1)
         self.set_cmd(':SOUR' + str(chn) + ':DATA:POIN VOLATILE, ' + str(n_data))
-        time.sleep(0.2)
+        time.sleep(0.1)
         for ind in range(len(data)):
-            data_str = ':DATA:VALue VOLATILE,' + str(ind+1) + ', ' + str(data[ind])
+            data_str = ':SOUR' + str(chn) + ':DATA:VALue VOLATILE,' + str(ind+1) + ', ' + str(data[ind])
             self.set_cmd(data_str)
-            time.sleep(0.2)
+            time.sleep(2/self.sps)
 
     def exec_func(self):
         self.query('*IDN?')
@@ -491,12 +534,7 @@ class SignalGenerator(USBTMC, VISA):
                 self.set_cmd(single_cmd)
             self.status()
 
-
     def impedance_check(self, chn=None):
         self.chn_check(chn)
         self.set_cmd(':OUTPut' + str(chn) + ':IMPedance?')
-
-    def sin_func(self, source=None, function='sin', frequency=50, phase=0, volt=[1, 0]):
-        self.cmd = init_sin_func(source=source, function=function, frequency=frequency, phase=phase, volt=volt)
-
 
