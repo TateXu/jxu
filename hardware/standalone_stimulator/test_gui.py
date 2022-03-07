@@ -35,6 +35,7 @@ class tACSWindow():
         if is_conda:
             messagebox.showwarning('Warning', 'The font of GUI cannot be rendered by Anaconda Python. For better visulization, please use other version of Python')
         self.window = window
+        self.dev_available = False
         self.window_geometry()
         self.button_place()
         self.wave_display()
