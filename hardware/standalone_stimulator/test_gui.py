@@ -96,12 +96,8 @@ class tACSWindow():
                 tmp_obj.insert(0, str(grid_val))
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
             elif grid_type == str:
-                if grid_val == '':
-                    tmp_obj = Label(self.window, font=self.fontStyle)
-                else:
-                    im_obj = tk.PhotoImage(file=f'{root}/Figures/{self.para_label[grid_val]}').subsample(subsps_coef)
-                    tmp_obj = Label(self.window, image=im_obj, font=self.fontStyle, bg="white")
-                    tmp_obj.image = im_obj
+                tmp_obj = Label(self.window, font=self.fontStyle)
+                tmp_obj = Label(self.window, text=grid_val, font=self.fontStyle, bg="white")
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
             elif grid_type == list:
                 tmp_click = StringVar()
