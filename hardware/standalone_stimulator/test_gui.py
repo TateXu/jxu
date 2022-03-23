@@ -29,14 +29,15 @@ from signal_generator import SignalGenerator as SG
 class tACSWindow():
     def __init__(self, window, fontsize=20):
 
-        self.fontStyle = tkFont.Font(family="Arial", size=fontsize) # "Lucida Grande"
         is_conda = os.path.exists(os.path.join(sys.prefix, 'conda-meta'))
         print(is_conda)
         if is_conda:
             messagebox.showwarning('Warning', 'The font of GUI cannot be rendered by Anaconda Python. For better visulization, please use other version of Python')
         self.window = window
         self.dev_available = False
+
         self.window_geometry()
+        self.fontStyle = tkFont.Font(family="Lucida Grande", size=self.fontsize) # "Lucida Grande"
         self.button_place()
         self.wave_display()
         self.window.mainloop()
@@ -49,22 +50,26 @@ class tACSWindow():
         im_on = f'{self.fig_root}/Figures/button_on.png'
         im_off = f'{self.fig_root}/Figures/button_off.png'
         im_update = f'{self.fig_root}/Figures/button_update.png'
+        im_refresh = f'{self.fig_root}/Figures/button_refresh.png'
+        im_connect= f'{self.fig_root}/Figures/button_connect.png'
         self.window.fig_on = tk.PhotoImage(file=im_on).subsample(3)
         self.window.fig_off = tk.PhotoImage(file=im_off).subsample(3)
         self.window.fig_update = tk.PhotoImage(file=im_update).subsample(3)
+        self.window.fig_refresh = tk.PhotoImage(file=im_refresh).subsample(3)
+        self.window.fig_connect = tk.PhotoImage(file=im_connect).subsample(3)
 
         self.para_widgets_mat = np.asarray(
             [[{'VISA': self.dev_list}, {'USBTMC': self.dev_list}, None, 'CH1', 'CH2'],
              ['Device List', [''], 'Stimulation Type', ['tACS', 'tDCS', 'tRNS', 'Arb'], ['tACS', 'tDCS', 'tRNS', 'Arb']],
-             [(self.window.fig_on, lambda: self.dev_connect()), None, 'Arbitrary Data', 0, 0],
+             [(self.window.fig_connect, lambda: self.dev_connect()), None, 'Arbitrary Data', 0, 0],
              [None, None, 'Voltage', 1, 1],
              [None, None, 'Frequency', 10, 10],
              [None, None, 'Phase', 0, 0],
              [None, None, 'Offset', 0, 0],
              [None, None, 'Fade In/Out', 5, 5],
              [None, None, 'Stim. Duration', 5, 5],
-             [(self.window.fig_update, self.para_update), None, 'Output', (self.window.fig_off, lambda: self.signal_out(chn=1), 'bt_out'), (self.window.fig_off, lambda: self.signal_out(chn=2), 'bt_out')],
-             [(self.window.fig_update, self.refresh), None, 'Timer', '', '']],
+             [(self.window.fig_update, self.para_update), (self.window.fig_refresh, self.refresh), 'Output', (self.window.fig_off, lambda: self.signal_out(chn=1), 'bt_out'), (self.window.fig_off, lambda: self.signal_out(chn=2), 'bt_out')],
+             [None, None, 'Timer', '', '']],
             dtype='object')
         self.para_label = {'Device List': 'label_ch1.png',
                            'CH1': 'label_ch1.png',
@@ -368,21 +373,38 @@ class tACSWindow():
         self.load_entry()
         self.para_update()
 
-        def state_switch(button, channel):
-            if button["state"] == "normal":
-                button["state"] = "active"
-                if self.dev_available:
-                    self.sig_gen.on(chn=channel)
-                button.configure(image=self.window.fig_on)
-                # vlabel.configure(image=self.window.photo1)
-                print('active')
-            else:
-                button["state"] = "normal"
-                if self.dev_available:
-                    self.sig_gen.off(chn=channel)
-                button.configure(image=self.window.fig_off)
-                # vlabel.configure(image=self.window.photo)
-                print('normal')
+        def state_switch(button, channel, forced=None):
+            if forced is None:
+                if button["state"] == "normal":
+                    button["state"] = "active"
+                    if self.dev_available:
+                        self.sig_gen.on(chn=channel)
+                    button.configure(image=self.window.fig_on)
+                    # vlabel.configure(image=self.window.photo1)
+                    # print('active')
+                else:
+                    button["state"] = "normal"
+                    if self.dev_available:
+                        self.sig_gen.off(chn=channel)
+                    button.configure(image=self.window.fig_off)
+                    # vlabel.configure(image=self.window.photo)
+                    # print('normal')
+            elif forced == 'on':
+                    if self.dev_available:
+                        self.sig_gen.on(chn=channel)
+                    button.configure(image=self.window.fig_on)
+                    button["state"] = "active"
+                    print('sleep')
+                    time.sleep(1)
+
+                    print('sleep done')
+            elif forced == 'off':
+                    if self.dev_available:
+                        self.sig_gen.off(chn=channel)
+                    button.configure(image=self.window.fig_off)
+                    button["state"] = "normal"
+                    time.sleep(0.1)
+            self.window.update()
 
         def amp_adjust(val, chn):
             click_list = self.click_list.copy()
@@ -404,20 +426,16 @@ class tACSWindow():
             if status == 'start':
                 # self.sig_gen.amp(0.002, chn=chn)
                 amp_adjust(0.002, chn=chn)
-                if self.dev_available:
-                    state_switch(button_out, channel=chn)
                 for stim_val in step_list:
                     time.sleep(sleep_dur)
                     amp_adjust(val=stim_val, chn=chn)
+                    print(stim_val)
             elif status == 'finish':
                 for stim_val in step_list[::-1]:
                     amp_adjust(val=stim_val, chn=chn)
                     # self.sig_gen.amp(stim_val, chn=chn)
                     time.sleep(sleep_dur)
-
                 print('off output')
-                if self.dev_available:
-                    state_switch(button_out, channel=chn)
 
 
         def stim_timer(chn, duration):
@@ -428,8 +446,7 @@ class tACSWindow():
                 self.window.after(1000, lambda: stim_timer(chn, duration))
                 print(duration)
             else:
-                self.window.after(1000, state_switch(self.bt_out[chn-1], channel=chn))
-
+                self.window.after(1000, state_switch(self.bt_out[chn-1], channel=chn, forced='off'))
 
         amp, fade_dur, stim_dur = self.entry_data[[1, -2, -1], chn-1]
         button_out = self.bt_out[chn-1]
@@ -438,7 +455,7 @@ class tACSWindow():
             state_switch(button_out, channel=chn)
         elif fade_dur != '':
             assert stim_dur != '', 'When fade is non-empty, duration also must be non-empty'
-            print(float(fade_dur))
+            state_switch(button_out, channel=chn, forced='on')
             fade(amp=amp, chn=chn, status='start', fade_dur=float(fade_dur))
             stim_timer(chn=chn, duration=float(stim_dur))
             fade(amp=amp, chn=chn, status='finish', fade_dur=float(fade_dur))
@@ -473,10 +490,13 @@ class tACSWindow():
                                          self.window_start_y))
         self.window.configure(bg=self._from_rgb((255, 255, 255)))
 
+        self.fontsize = np.amin([self.window_width/80, self.window_height/80]).astype(int)
+
     def _from_rgb(self, rgb):
         return "#%02x%02x%02x" % rgb
 
 window = tk.Tk()
+window.title('PyTES Toolbox')
 mywin = tACSWindow(window)
 
 
