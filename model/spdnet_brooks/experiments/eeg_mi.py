@@ -13,6 +13,8 @@ import random
 import os
 from pathlib import Path
 import sys
+from time import time
+import pickle
 
 from moabb.datasets import MunichMI, BNCI2014001
 from moabb.paradigms import MotorImagery
@@ -35,7 +37,7 @@ cpu time vs cuda time for current version upper cpu and lower cuda
 [6.15100752e-01 1.81497468e-04 7.07017051e-05 7.16951158e-05]
 
 """
-def hdm05(data_loader):
+def hdm05(data_loader, save_file):
 
     # main parameters
     lr = 5e-2
@@ -50,7 +52,7 @@ def hdm05(data_loader):
         sys.exit(2)
 
     # setup data and model
-    class HDMNet(nn.Module):
+    class HDMNet_abstract(nn.Module):
         def __init__(self, dim_list=[128, 128, 10, 10, 10, 10]):
             super(__class__, self).__init__()
             self.dim_list = dim_list
@@ -82,8 +84,8 @@ def hdm05(data_loader):
             y = self.linear(x_vec)
 
             return y
-    class HDMNet_(nn.Module):
-        def __init__(self, dim_list=[128, 128, 10, 10, 10, 10]):
+    class HDMNet(nn.Module):
+        def __init__(self):
             super(__class__, self).__init__()
             dim0 = 128
             dim1 = 128
@@ -92,10 +94,10 @@ def hdm05(data_loader):
             dim4 = 10
             dim5 = 10
 
-            self.dim_list = dim_list
             classes = 2
             # ch_out, ch_in, dim_in, dim_out
             self.batchnorm0 = nn_spd.BatchNormSPD(dim0)
+
             self.bimap1 = nn_spd.BiMap(1, 1, dim0, dim1)
             self.batchnorm1 = nn_spd.BatchNormSPD(dim1)
             self.reeig1 = nn_spd.ReEig()
@@ -123,7 +125,7 @@ def hdm05(data_loader):
             self.logeig5 = nn_spd.LogEig()
 
 
-            self.linear = nn.Linear(dim3**2, classes).to(device).double()
+            self.linear = nn.Linear(dim5**2, classes).to(device).double()
 
         def forward(self, x):
             # x_spd = self.bimap1(x)
@@ -145,7 +147,7 @@ def hdm05(data_loader):
             x_vec = x_spd5.view(x_spd5.shape[0], -1)
             y = self.linear(x_vec)
             return y
-    model = HDMNet_()
+    model = HDMNet()
 
     # setup loss and optimizer
     loss_fn = nn.CrossEntropyLoss()
@@ -158,12 +160,12 @@ def hdm05(data_loader):
     model.eval()
     for local_batch, local_labels in gen:
         out = model(local_batch)
-        l = loss_fn(out, local_labels)
+        loss_obj = loss_fn(out, local_labels)
         predicted_labels = out.argmax(1)
         y_true.extend(list(local_labels.cpu().numpy()))
         y_pred.extend(list(predicted_labels.cpu().numpy()))
         acc, loss = (predicted_labels == local_labels).cpu(
-        ).numpy().sum()/out.shape[0], l.cpu().data.numpy()
+        ).numpy().sum()/out.shape[0], loss_obj.cpu().data.numpy()
         loss_val.append(loss)
         acc_val.append(acc)
     acc_val = np.asarray(acc_val).mean()
@@ -171,8 +173,11 @@ def hdm05(data_loader):
     print('Initial validation accuracy: '+str(100*acc_val)+'%')
 
     # training loop
-    for epoch in range(epochs):
 
+    all_acc_val = []
+    all_t = []
+    for epoch in range(epochs):
+        start = time()
         # train one epoch
         loss_train, acc_train = [], []
         model.train()
@@ -191,6 +196,7 @@ def hdm05(data_loader):
 
         # validation
         acc_val_list = []
+        loss_val_list = []
         y_true, y_pred = [], []
         model.eval()
         for local_batch, local_labels in data_loader._test_generator:
@@ -202,10 +208,15 @@ def hdm05(data_loader):
             acc, loss = (predicted_labels == local_labels).cpu(
             ).numpy().sum()/out.shape[0], l.cpu().data.numpy()
             acc_val_list.append(acc)
-        xx = None
         acc_val = np.asarray(acc_val_list).mean()
         print('Val acc: ' + str(100*acc_val) + '% at epoch ' +
               str(epoch + 1) + '/' + str(epochs))
+
+        all_acc_val.append([acc_train, loss_train, acc_val])
+        all_t.append(time()-start)
+
+    with open(save_file, 'wb') as f:
+        pickle.dump([all_acc_val, all_t], f)
 
     print('Final validation accuracy: '+str(100*acc_val)+'%')
     return 100*acc_val
@@ -258,7 +269,7 @@ if __name__ == "__main__":
             self._train_generator = data.DataLoader(
                 train_set, batch_size=batch_size, shuffle='True')
             self._test_generator = data.DataLoader(
-                test_set, batch_size=batch_size, shuffle='True')
+                test_set, batch_size=batch_size, shuffle='False')
 
         def preload_data(self):
 
@@ -288,10 +299,10 @@ if __name__ == "__main__":
                 test_size=self.pval, stratify=self.y_all)
 
     pval = 0.2   # test percentage
-    batch_size = 10  # batch size
+    batch_size = 250 # batch size
     aa = DataLoaderMOABB(subject=2, session=0, pval=pval,
                          batch_size=batch_size)
-    hdm05(aa)
+    hdm05(aa, save_file=f'five_layers.pkl')
     import pdb;pdb.set_trace()
 
 

@@ -61,7 +61,6 @@ def hdm05(data_loader):
     gen = data_loader._test_generator
     model.eval()
     for local_batch, local_labels in gen:
-        import pdb;pdb.set_trace()
         out = model(local_batch)
         l = loss_fn(out, local_labels)
         predicted_labels = out.argmax(1)
