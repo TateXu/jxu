@@ -53,38 +53,6 @@ def hdm05(data_loader):
     class HDMNet(nn.Module):
         def __init__(self, dim_list=[128, 128, 10, 10, 10, 10]):
             super(__class__, self).__init__()
-            self.dim_list = dim_list
-            classes = 2
-            # ch_out, ch_in, dim_in, dim_out
-
-            self.batchnorm_list = []
-            self.bimap_list = []
-            self.reeig_list = []
-            self.logeig_list = []
-
-            self.batchnorm_list.append(nn_spd.BatchNormSPD(dim_list[0]))
-            for layer_ind, layer_dim in enumerate(dim_list[1:]):
-                self.bimap_list.append(
-                    nn_spd.BiMap(1, 1, dim_list[layer_ind], layer_dim))
-                self.batchnorm_list.append(nn_spd.BatchNormSPD(layer_dim))
-                self.reeig_list.append(nn_spd.ReEig())
-                self.logeig_list.append(nn_spd.LogEig())
-
-            self.linear = nn.Linear(dim_list[-1]**2, classes).to(device).double()
-
-        def forward(self, x):
-            x_temp = self.batchnorm_list[0](x)
-            for i in range(len(self.reeig_list)):
-                x_temp = self.reeig_list[i](self.batchnorm_list[i+1](self.bimap_list[i](x_temp)))
-
-            x_temp = self.logeig_list[-1](x_temp)
-            x_vec = x_temp.view(x_temp.shape[0], -1)
-            y = self.linear(x_vec)
-
-            return y
-    class HDMNet_(nn.Module):
-        def __init__(self, dim_list=[128, 128, 10, 10, 10, 10]):
-            super(__class__, self).__init__()
             dim0 = 128
             dim1 = 128
             dim2 = 10
@@ -95,35 +63,17 @@ def hdm05(data_loader):
             self.dim_list = dim_list
             classes = 2
             # ch_out, ch_in, dim_in, dim_out
-            self.batchnorm0 = nn_spd.BatchNormSPD(dim0)
-            self.bimap1 = nn_spd.BiMap(1, 1, dim0, dim1)
-            self.batchnorm1 = nn_spd.BatchNormSPD(dim1)
-            self.reeig1 = nn_spd.ReEig()
-            self.logeig1 = nn_spd.LogEig()
 
-            self.bimap2 = nn_spd.BiMap(1, 1, dim1, dim2)
-            self.batchnorm2 = nn_spd.BatchNormSPD(dim2)
-            self.reeig2 = nn_spd.ReEig()
-            self.logeig2 = nn_spd.LogEig()
+            self.batchnorm_list, self.bimap_list, self.reeig_list, self.logeig_list = [] * 4
+            self.batchnorm_list.append(nn_spd.BatchNormSPD(dim_list[0]))
+            for layer_ind, layer_dim in enumerate(dim_list[1:]):
+                self.bimap_list.append(
+                    nn_spd.BiMap(1, 1, layer_dim, dim_list[layer_ind+1]))
+                self.batchnorm_list.append(nn_spd.BatchNormSPD(layer_dim))
+                self.reeig_list.append(nn_spd.ReEig())
+                self.logeig_list.append(nn_spd.LogEig())
 
-            self.bimap3 = nn_spd.BiMap(1, 1, dim2, dim3)
-            self.batchnorm3 = nn_spd.BatchNormSPD(dim3)
-            self.reeig3 = nn_spd.ReEig()
-            self.logeig3 = nn_spd.LogEig()
-
-            self.bimap4 = nn_spd.BiMap(1, 1, dim3, dim4)
-            self.batchnorm4 = nn_spd.BatchNormSPD(dim4)
-            self.reeig4 = nn_spd.ReEig()
-            self.logeig4 = nn_spd.LogEig()
-
-
-            self.bimap5 = nn_spd.BiMap(1, 1, dim4, dim5)
-            self.batchnorm5 = nn_spd.BatchNormSPD(dim5)
-            self.reeig5 = nn_spd.ReEig()
-            self.logeig5 = nn_spd.LogEig()
-
-
-            self.linear = nn.Linear(dim3**2, classes).to(device).double()
+            self.linear = nn.Linear(dim_list[-1]**2, classes).to(device).double()
 
         def forward(self, x):
             # x_spd = self.bimap1(x)
@@ -145,7 +95,7 @@ def hdm05(data_loader):
             x_vec = x_spd5.view(x_spd5.shape[0], -1)
             y = self.linear(x_vec)
             return y
-    model = HDMNet_()
+    model = HDMNet()
 
     # setup loss and optimizer
     loss_fn = nn.CrossEntropyLoss()
@@ -259,6 +209,7 @@ if __name__ == "__main__":
                 train_set, batch_size=batch_size, shuffle='True')
             self._test_generator = data.DataLoader(
                 test_set, batch_size=batch_size, shuffle='True')
+            import pdb;pdb.set_trace()
 
         def preload_data(self):
 
