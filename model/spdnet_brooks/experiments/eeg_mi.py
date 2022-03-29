@@ -52,47 +52,11 @@ def hdm05(data_loader, save_file):
         sys.exit(2)
 
     # setup data and model
-    class HDMNet_abstract(nn.Module):
-        def __init__(self, dim_list=[128, 128, 10, 10, 10, 10]):
-            super(__class__, self).__init__()
-            self.dim_list = dim_list
-            classes = 2
-            # ch_out, ch_in, dim_in, dim_out
-
-            self.batchnorm_list = []
-            self.bimap_list = []
-            self.reeig_list = []
-            self.logeig_list = []
-
-            self.batchnorm_list.append(nn_spd.BatchNormSPD(dim_list[0]))
-            for layer_ind, layer_dim in enumerate(dim_list[1:]):
-                self.bimap_list.append(
-                    nn_spd.BiMap(1, 1, dim_list[layer_ind], layer_dim))
-                self.batchnorm_list.append(nn_spd.BatchNormSPD(layer_dim))
-                self.reeig_list.append(nn_spd.ReEig())
-                self.logeig_list.append(nn_spd.LogEig())
-
-            self.linear = nn.Linear(dim_list[-1]**2, classes).to(device).double()
-
-        def forward(self, x):
-            x_temp = self.batchnorm_list[0](x)
-            for i in range(len(self.reeig_list)):
-                x_temp = self.reeig_list[i](self.batchnorm_list[i+1](self.bimap_list[i](x_temp)))
-
-            x_temp = self.logeig_list[-1](x_temp)
-            x_vec = x_temp.view(x_temp.shape[0], -1)
-            y = self.linear(x_vec)
-
-            return y
     class HDMNet(nn.Module):
         def __init__(self):
             super(__class__, self).__init__()
             dim0 = 128
             dim1 = 128
-            dim2 = 10
-            dim3 = 10
-            dim4 = 10
-            dim5 = 10
 
             classes = 2
             # ch_out, ch_in, dim_in, dim_out
@@ -103,52 +67,47 @@ def hdm05(data_loader, save_file):
             self.reeig1 = nn_spd.ReEig()
             self.logeig1 = nn_spd.LogEig()
 
-            self.bimap2 = nn_spd.BiMap(1, 1, dim1, dim2)
-            self.batchnorm2 = nn_spd.BatchNormSPD(dim2)
-            self.reeig2 = nn_spd.ReEig()
-            self.logeig2 = nn_spd.LogEig()
+            self.linear = nn.Linear(dim1**2, classes).to(device).double()
 
-            self.bimap3 = nn_spd.BiMap(1, 1, dim2, dim3)
-            self.batchnorm3 = nn_spd.BatchNormSPD(dim3)
-            self.reeig3 = nn_spd.ReEig()
-            self.logeig3 = nn_spd.LogEig()
+            # self.bimap2 = nn_spd.BiMap(1, 1, dim1, dim2)
+            # self.batchnorm2 = nn_spd.BatchNormSPD(dim2)
+            # self.reeig2 = nn_spd.ReEig()
+            # self.logeig2 = nn_spd.LogEig()
 
-            self.bimap4 = nn_spd.BiMap(1, 1, dim3, dim4)
-            self.batchnorm4 = nn_spd.BatchNormSPD(dim4)
-            self.reeig4 = nn_spd.ReEig()
-            self.logeig4 = nn_spd.LogEig()
+            # self.bimap3 = nn_spd.BiMap(1, 1, dim2, dim3)
+            # self.batchnorm3 = nn_spd.BatchNormSPD(dim3)
+            # self.reeig3 = nn_spd.ReEig()
+            # self.logeig3 = nn_spd.LogEig()
 
+            # self.bimap4 = nn_spd.BiMap(1, 1, dim3, dim4)
+            # self.batchnorm4 = nn_spd.BatchNormSPD(dim4)
+            # self.reeig4 = nn_spd.ReEig()
+            # self.logeig4 = nn_spd.LogEig()
 
-            self.bimap5 = nn_spd.BiMap(1, 1, dim4, dim5)
-            self.batchnorm5 = nn_spd.BatchNormSPD(dim5)
-            self.reeig5 = nn_spd.ReEig()
-            self.logeig5 = nn_spd.LogEig()
+            # self.bimap5 = nn_spd.BiMap(1, 1, dim4, dim5)
+            # self.batchnorm5 = nn_spd.BatchNormSPD(dim5)
+            # self.reeig5 = nn_spd.ReEig()
+            # self.logeig5 = nn_spd.LogEig()
 
-
-            self.linear = nn.Linear(dim5**2, classes).to(device).double()
+            # self.linear = nn.Linear(dim5**2, classes).to(device).double()
 
         def forward(self, x):
-            # x_spd = self.bimap1(x)
-            # x_vec = self.logeig(self.reeig(x_spd)).view(x_spd.shape[0], -1)
 
-            # x_spd1 = self.logeig1(self.reeig1(self.batchnorm1(self.bimap1(x))))
-            # x_spd2 = self.logeig2(self.reeig2(self.batchnorm2(self.bimap2(x_spd1))))
-            # x_spd3 = self.logeig3(self.reeig3(self.batchnorm3(self.bimap3(x_spd2))))
-            x_spd1 = self.reeig1(self.batchnorm1(self.bimap1(self.batchnorm0(x))))
-            # x_spd1 = self.reeig1(self.batchnorm1(self.bimap1(x)))
-            x_spd2 = self.reeig2(self.batchnorm2(self.bimap2(x_spd1)))
-
-            # x_spd3 = self.logeig3(self.reeig3(self.batchnorm3(self.bimap3(x_spd2))))
-            # x_vec = x_spd3.view(x_spd3.shape[0], -1)
-
-            x_spd3 = self.reeig3(self.batchnorm3(self.bimap3(x_spd2)))
-            x_spd4 = self.reeig4(self.batchnorm4(self.bimap4(x_spd3)))
-            x_spd5 = self.logeig5(self.reeig5(self.batchnorm5(self.bimap5(x_spd4))))
-            x_vec = x_spd5.view(x_spd5.shape[0], -1)
+            x_spd1 = self.logeig1(self.reeig1(self.batchnorm1(self.bimap1(self.batchnorm0(x)))))
+            x_vec = x_spd1.view(x_spd1.shape[0], -1)
             y = self.linear(x_vec)
             return y
-    model = HDMNet()
 
+            # x_spd1 = self.reeig1(self.batchnorm1(self.bimap1(self.batchnorm0(x))))
+            # x_spd2 = self.reeig2(self.batchnorm2(self.bimap2(x_spd1)))
+            # x_spd3 = self.reeig3(self.batchnorm3(self.bimap3(x_spd2)))
+            # x_spd4 = self.reeig4(self.batchnorm4(self.bimap4(x_spd3)))
+            # x_spd5 = self.logeig5(self.reeig5(self.batchnorm5(self.bimap5(x_spd4))))
+            # x_vec = x_spd5.view(x_spd5.shape[0], -1)
+            # y = self.linear(x_vec)
+
+
+    model = HDMNet()
     # setup loss and optimizer
     loss_fn = nn.CrossEntropyLoss()
     opti = MixOptimizer(model.parameters(), lr=lr)
@@ -196,7 +155,6 @@ def hdm05(data_loader, save_file):
 
         # validation
         acc_val_list = []
-        loss_val_list = []
         y_true, y_pred = [], []
         model.eval()
         for local_batch, local_labels in data_loader._test_generator:
@@ -215,8 +173,8 @@ def hdm05(data_loader, save_file):
         all_acc_val.append([acc_train, loss_train, acc_val])
         all_t.append(time()-start)
 
-    with open(save_file, 'wb') as f:
-        pickle.dump([all_acc_val, all_t], f)
+    with open(f'./files/{save_file}', 'wb') as f:
+        pickle.dump([all_acc_val, all_t, model], f)
 
     print('Final validation accuracy: '+str(100*acc_val)+'%')
     return 100*acc_val
@@ -298,11 +256,13 @@ if __name__ == "__main__":
                 np.asarray(range(len(self.y_all))), self.y_all,
                 test_size=self.pval, stratify=self.y_all)
 
-    pval = 0.2   # test percentage
-    batch_size = 250 # batch size
+    pval = 0.5
+    batch_size = 40 # batch size
     aa = DataLoaderMOABB(subject=2, session=0, pval=pval,
-                         batch_size=batch_size)
-    hdm05(aa, save_file=f'five_layers.pkl')
+                        batch_size=batch_size)
+    hdm05(aa, save_file=f'128-128_pval{str(pval)}_bs{str(batch_size)}.pkl')
+
+
     import pdb;pdb.set_trace()
 
 
