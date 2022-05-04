@@ -1,76 +1,98 @@
-#========================================
+# ========================================
 # Author     : Jiachen Xu
 # Blog       : www.jiachenxu.net
 # Time       : 2021-08-10 20:13:48
 # Name       : test_gui.py
 # Version    : V1.0
 # Description: A minimal example for tkinter based gui
-#========================================
+# ========================================
 
-import sys, os
-import numpy as np
-import platform
+import os
+import sys
 import time
+import platform
+import numpy as np
 
 import matplotlib
-matplotlib.use('TkAgg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import (Label, Entry, Button, Checkbutton, OptionMenu,
-                     StringVar, messagebox, simpledialog, END)
-
-from PIL import Image, ImageTk
+                     StringVar, messagebox, simpledialog)
 
 from signal_generator import SignalGenerator as SG
 
-class tACSWindow():
+matplotlib.use('TkAgg')
+
+
+class PyTESWindow():
     def __init__(self, window, fontsize=20):
 
         is_conda = os.path.exists(os.path.join(sys.prefix, 'conda-meta'))
-        print(is_conda)
         if is_conda:
-            messagebox.showwarning('Warning', 'The font of GUI cannot be rendered by Anaconda Python. For better visulization, please use other version of Python')
+            messagebox.showwarning('Warning', 'The font of GUI cannot be \
+                                   rendered by Anaconda Python. For better \
+                                   visulization, please use other version \
+                                   of Python')
         self.window = window
         self.dev_available = False
 
         self.window_geometry()
-        self.fontStyle = tkFont.Font(family="Lucida Grande", size=self.fontsize) # "Lucida Grande"
+        self.fontStyle = tkFont.Font(family="Lucida Grande",
+                                     size=self.fontsize)
         self.button_place()
         self.wave_display()
         self.window.mainloop()
 
     def button_place(self):
-        root = '/home/jxu/anaconda3/lib/python3.7/site-packages/jxu/hardware/standalone_stimulator/'
-        self.fig_root = root
-        subsps_coef = 2
+        # Allocating the spaces for the GUI widgets based on the grid
+        self.fig_root = os.path.dirname(os.path.abspath(__file__))
 
         im_on = f'{self.fig_root}/Figures/button_on.png'
         im_off = f'{self.fig_root}/Figures/button_off.png'
         im_update = f'{self.fig_root}/Figures/button_update.png'
         im_refresh = f'{self.fig_root}/Figures/button_refresh.png'
-        im_connect= f'{self.fig_root}/Figures/button_connect.png'
+        im_connect = f'{self.fig_root}/Figures/button_connect.png'
         self.window.fig_on = tk.PhotoImage(file=im_on).subsample(3)
         self.window.fig_off = tk.PhotoImage(file=im_off).subsample(3)
         self.window.fig_update = tk.PhotoImage(file=im_update).subsample(3)
         self.window.fig_refresh = tk.PhotoImage(file=im_refresh).subsample(3)
         self.window.fig_connect = tk.PhotoImage(file=im_connect).subsample(3)
 
+        """
+        Data type of element in the mat - Type of the widgets
+        None  - Empty
+        Dict  - Checkbutton
+        Str   - Label
+        List  - Option Menu
+        Tuple - Clickable Button
+        Int/Float - Entry of value
+        """
         self.para_widgets_mat = np.asarray(
-            [[{'VISA': self.dev_list}, {'USBTMC': self.dev_list}, None, 'CH1', 'CH2'],
-             ['Device List', [''], 'Stimulation Type', ['tACS', 'tDCS', 'tRNS', 'Arb'], ['tACS', 'tDCS', 'tRNS', 'Arb']],
-             [(self.window.fig_connect, lambda: self.dev_connect()), None, 'Arbitrary Data', 0, 0],
+            [[{'VISA': self.dev_list}, {'USBTMC': self.dev_list}, None,
+              'CH1', 'CH2'],
+             ['Device List', [''], 'Stimulation Type',
+              ['tACS', 'tDCS', 'tRNS', 'Arb'],
+              ['tACS', 'tDCS', 'tRNS', 'Arb']],
+             [(self.window.fig_connect, lambda: self.dev_connect()), None,
+              'Arbitrary Data', 0, 0],
              [None, None, 'Voltage', 1, 1],
              [None, None, 'Frequency', 10, 10],
              [None, None, 'Phase', 0, 0],
              [None, None, 'Offset', 0, 0],
              [None, None, 'Fade In/Out', 5, 5],
              [None, None, 'Stim. Duration', 5, 5],
-             [(self.window.fig_update, self.para_update), (self.window.fig_refresh, self.refresh), 'Output', (self.window.fig_off, lambda: self.signal_out(chn=1), 'bt_out'), (self.window.fig_off, lambda: self.signal_out(chn=2), 'bt_out')],
+             [(self.window.fig_update, self.para_update),
+              (self.window.fig_refresh, self.refresh),
+              'Output',
+              (self.window.fig_off, lambda: self.signal_out(chn=1), 'bt_out'),
+              (self.window.fig_off, lambda: self.signal_out(chn=2), 'bt_out')],
              [None, None, 'Timer', '', '']],
             dtype='object')
+
+        # Images for the labels
         self.para_label = {'Device List': 'label_ch1.png',
                            'CH1': 'label_ch1.png',
                            'CH2': 'label_ch2.png',
@@ -84,7 +106,7 @@ class tACSWindow():
                            'Stim. Duration': 'label_stim_dur.png',
                            'Output': 'label_output.png',
                            'Timer': 'label_output.png',
-                          }
+                           }
         self.para_widgets_mat_obj = np.empty(self.para_widgets_mat.shape,
                                              dtype='object')
 
@@ -102,7 +124,8 @@ class tACSWindow():
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
             elif grid_type == str:
                 tmp_obj = Label(self.window, font=self.fontStyle)
-                tmp_obj = Label(self.window, text=grid_val, font=self.fontStyle, bg="white")
+                tmp_obj = Label(self.window, text=grid_val,
+                                font=self.fontStyle, bg="white")
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
             elif grid_type == list:
                 tmp_click = StringVar()
@@ -122,7 +145,8 @@ class tACSWindow():
                     self.dev_click = tmp_click
                 del tmp_click
             elif grid_type == tuple:
-                tmp_obj = Button(self.window, image=grid_val[0], bg="white", command=grid_val[1])
+                tmp_obj = Button(self.window, image=grid_val[0], bg="white",
+                                 command=grid_val[1])
                 tmp_obj.image = grid_val[0]
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
                 if len(grid_val) == 3:
@@ -137,17 +161,20 @@ class tACSWindow():
                 tmp_obj.grid(row=row+row_start, column=col+col_start)
                 self.check_list.append(tmp_check)
             else:
-                import pdb;pdb.set_trace()
                 raise ValueError('Unsupported Variable Value')
 
             self.para_widgets_mat_obj[row, col] = tmp_obj
             del tmp_obj
 
-        # self.bt_update = tk.Button(self.window, image=self.window.fig_update, command=self.para_update)
-        # self.bt_update.image = self.window.fig_update
-        # self.bt_update.grid(row=9, column=0)
-
     def entry_state_update(self, event):
+        """Update the status of each entry
+
+        Note:
+        After selecting the stimualtion mode in the option menu, certain
+        entries will be activated or deactivated. E.g., in tDCS mode, the entry
+        for frequency is deactivated because a direct current signal has no
+        frequency.
+        """
         for id_click, click in enumerate(self.click_list):
             click_val = click.get()
 
@@ -164,9 +191,14 @@ class tACSWindow():
                 state_list = ['normal', 'disable', 'disable', 'disable',
                               'disable', 'disable', 'disable', 'normal']
             for id_entry, entry_state in enumerate(state_list):
-                self.para_widgets_mat_obj[id_entry+self.entry_row_start, id_click+self.entry_col_start].config(state=entry_state)
+                self.para_widgets_mat_obj[
+                    id_entry+self.entry_row_start,
+                    id_click+self.entry_col_start].config(state=entry_state)
 
     def dev_list(self):
+        """Display the list of clickable devices corresponding to chosen driver
+
+        """
         visa_status = self.check_list[0].get()
         usbtmc_status = self.check_list[1].get()
         self.os_ver = platform.platform()
@@ -183,21 +215,28 @@ class tACSWindow():
             return None
         elif not visa_status and usbtmc_status:
             from signal_generator import USBTMC
-            import os
 
             tmp = USBTMC(inst=False)
             for i, i_dev in enumerate(tmp.available_port_list()):
                 try:
                     _ = os.open(i_dev, os.O_RDWR)
                 except OSError:
-                    pwd = simpledialog.askstring(title="Test", prompt='Enter your root pwd to change port access')
+                    pwd = simpledialog.askstring(
+                        title="Test",
+                        prompt='Enter your root pwd to change port access')
                     os.system(f'echo {pwd} | sudo -S chmod 666 {i_dev}')
 
-            self.all_devices, self.dev_inst_list = USBTMC(inst=False).dev_list()
+            self.all_devices, self.dev_inst_list = \
+                USBTMC(inst=False).dev_list()
             self.protocol = 'USBTMC'
         elif visa_status and not usbtmc_status:
             from signal_generator import VISA
-            self.all_devices, self.dev_inst_list = VISA(inst=False).dev_list()
+            try:
+                self.all_devices, self.dev_inst_list = VISA(inst=False).dev_list()
+            except ModuleNotFoundError:
+                messagebox.showerror(title='Error', message='VISA driver is \
+                                     not available. Check installation of \
+                                     pyvisa')
             self.protocol = 'VISA'
         else:
             return None
@@ -206,29 +245,44 @@ class tACSWindow():
         menu = self.para_widgets_mat_obj[1, 1][0]['menu']
         menu.delete(0, 'end')
         for choice in self.all_devices:
-            menu.add_command(label=choice, command=tk._setit(self.dev_click, choice))
+            menu.add_command(label=choice,
+                             command=tk._setit(self.dev_click, choice))
 
         self.refresh()
 
-
     def dev_connect(self):
+        """Try to connect the selected devices
+
+        """
         click_val = self.dev_click.get()
-        ind_ = self.all_devices.index(click_val)
+        if click_val == '':
+            messagebox.showwarning('Warning', 'No selected device! \
+                                   Please try another driver or check the' +
+                                   ' connection')
+        else:
+            ind_ = self.all_devices.index(click_val)
 
-        dev = self.dev_inst_list[ind_]
-        if dev is None:
-            messagebox.showwarning('Warning', 'No available devices!')
-        print(ind_)
-
-        self.sig_gen = SG(dev=dev, protocol=self.protocol)
-        self.dev_available = True
-
-
+            dev = self.dev_inst_list[ind_]
+            if dev is None:
+                messagebox.showwarning('Warning', 'No available devices!')
+            print(ind_)
+            try:
+                self.sig_gen = SG(dev=dev, protocol=self.protocol)
+                self.dev_available = True
+                messagebox.showinfo('Connection Status', 'Connection succeeded!')
+            except Exception as e:
+                self.dev_available = False
+                messagebox.showinfo('Connection Status', f'Connection failed!\n{e}')
 
     def wave_display(self):
+        """Plot the signal in the left panel based on the input entries of
+        the right panels
 
-        # self.fig, self.ax = plt.subplots(2, 1, facecolor=(1, 1, 1),
-        #                                  figsize=(self.window_width*0.4/100, self.window_height*0.8/100))
+        E.g., if stimulation is chosen as tACS for Channel 1, the corresponding
+        plots for CH1 will show a sinusoid curve based on input frequency,
+        amplitude, offset and phase.
+
+        """
         self.fig, self.ax = plt.subplots(2, 1, facecolor=(1, 1, 1))
         self.curve_color_list = ['xkcd:yellow green', 'xkcd:sky blue']
         self.title_list = ['CH1', 'CH2']
@@ -246,9 +300,9 @@ class tACSWindow():
         self.ax[1].set_ylabel('Voltage/V')
 
         plt.ion()
-        t = np.arange(0.0,3.0,0.01)
+        t = np.arange(0.0, 3.0, 0.01)
         s = np.sin(np.pi*t)
-        self.ax[0].plot(t,s)
+        self.ax[0].plot(t, s)
         self.fig.tight_layout()
 
         canvas = FigureCanvasTkAgg(self.fig, master=self.window)
@@ -256,16 +310,13 @@ class tACSWindow():
 
         def update():
             s = np.cos(np.pi*t)
-            self.ax[0].plot(t,s, color='xkcd:yellow green')
-            self.ax[1].plot(t,s, color='xkcd:sky blue')
+            self.ax[0].plot(t, s, color='xkcd:yellow green')
+            self.ax[1].plot(t, s, color='xkcd:sky blue')
             self.fig.tight_layout()
             self.fig.canvas.draw()
 
-        # plot_widget.pack(expand=True, side=LEFT)
-        plot_widget.grid(row=3, column=0, rowspan=6, columnspan=2, sticky='nsew')
-
-        # self.window.mainloop()
-
+        plot_widget.grid(row=3, column=0, rowspan=6, columnspan=2,
+                         sticky='nsew')
 
     def ax_plt(self, xs, ys, chn):
 
@@ -279,9 +330,11 @@ class tACSWindow():
         self.fig.tight_layout()
         self.fig.canvas.draw()
 
-
-
     def para_update(self):
+        """Update the plots of the left panel based on the current parameters
+        of the right panel
+
+        """
         for id_click, click in enumerate(self.click_list):
             click_val = click.get()
             if click_val == 'tACS':
@@ -293,9 +346,10 @@ class tACSWindow():
             elif click_val == 'Arb':
                 self.arb_update(chn=id_click+1)
 
-
-
     def load_entry(self):
+        """Load the current values for all entries on the right panel
+
+        """
         def customize_float(string_val):
             try:
                 return float(string_val)
@@ -306,11 +360,10 @@ class tACSWindow():
         self.entry_data = np.empty((7, 2), dtype='object')
         for (i, j), _ in np.ndenumerate(self.entry_data):
             self.entry_data[i, j] = customize_float(
-                self.para_widgets_mat_obj[i+self.entry_row_start, j+self.entry_col_start].get())
-
+                self.para_widgets_mat_obj[i+self.entry_row_start,
+                                          j+self.entry_col_start].get())
 
     def sin_update(self, chn):
-
         self.load_entry()
         amp, freq, phase, offset = self.entry_data[1:5, chn-1]
 
@@ -322,9 +375,7 @@ class tACSWindow():
         if self.dev_available:
             self.sig_gen.para_set(self.scpi_cmd_ch, chn=chn)
 
-
     def dc_update(self, chn):
-
         self.load_entry()
         amp = self.entry_data[1, chn-1]
 
@@ -337,9 +388,7 @@ class tACSWindow():
         if self.dev_available:
             self.sig_gen.para_set(self.scpi_cmd_ch, chn=chn)
 
-
     def noise_update(self, chn):
-
         self.load_entry()
         amp, offset = self.entry_data[[1, 4], chn-1]
 
@@ -366,10 +415,17 @@ class tACSWindow():
 
         if self.dev_available:
             self.sig_gen.sps = arb_data['sps']
-            self.sig_gen.arb_func(data=arb_data['data'], chn=chn)
-
+            self.sig_gen.arb_func(data=arb_data['data'], chn=chn,
+                                  sps=arb_data['sps'])
 
     def signal_out(self, chn):
+        """Control the output of the stimulation signal and switch the status
+        button accordingly.
+
+        In addition, once the output is turned on and a stimulation timer is
+        set, a counting down window will indicate the residual stimulation time
+
+        """
         self.load_entry()
         self.para_update()
 
@@ -390,20 +446,17 @@ class tACSWindow():
                     # vlabel.configure(image=self.window.photo)
                     # print('normal')
             elif forced == 'on':
-                    if self.dev_available:
-                        self.sig_gen.on(chn=channel)
-                    button.configure(image=self.window.fig_on)
-                    button["state"] = "active"
-                    print('sleep')
-                    time.sleep(1)
-
-                    print('sleep done')
+                if self.dev_available:
+                    self.sig_gen.on(chn=channel)
+                button.configure(image=self.window.fig_on)
+                button["state"] = "active"
+                time.sleep(0.1)
             elif forced == 'off':
-                    if self.dev_available:
-                        self.sig_gen.off(chn=channel)
-                    button.configure(image=self.window.fig_off)
-                    button["state"] = "normal"
-                    time.sleep(0.1)
+                if self.dev_available:
+                    self.sig_gen.off(chn=channel)
+                button.configure(image=self.window.fig_off)
+                button["state"] = "normal"
+                time.sleep(0.1)
             self.window.update()
 
         def amp_adjust(val, chn):
@@ -417,10 +470,14 @@ class tACSWindow():
                 elif click_val == 'tDCS':
                     self.sig_gen.para_set({'offset': val}, chn=chn)
                 elif click_val == 'tRNS':
-                    offset = self.offset_val_ch1 if chn == 1 else self.offset_val_ch2
+                    if chn == 1:
+                        offset = self.offset_val_ch1
+                    else:
+                        offset = self.offset_val_ch2
                     self.sig_gen.para_set({'noise': [val, offset]}, chn=chn)
 
         def fade(amp, fade_dur, chn, step_per_sec=2, status='start'):
+            print('fade start')
             sleep_dur = 1 / step_per_sec
             step_list = np.linspace(0.002, amp, int(fade_dur*step_per_sec))
             if status == 'start':
@@ -437,37 +494,50 @@ class tACSWindow():
                     time.sleep(sleep_dur)
                 print('off output')
 
+            print('fade end')
 
         def stim_timer(chn, duration):
             print('Timer start')
-            if duration > 0:
+            # Note: tried to use self.window.after, but it does not work as
+            # after is a callback function and cannot block the thread
+            while duration > 0:
                 duration -= 1
-                self.para_widgets_mat_obj[10, chn+self.entry_col_start-1]['text'] = duration
-                self.window.after(1000, lambda: stim_timer(chn, duration))
-                print(duration)
-            else:
-                self.window.after(1000, state_switch(self.bt_out[chn-1], channel=chn, forced='off'))
+                self.para_widgets_mat_obj[
+                    10, chn+self.entry_col_start-1]['text'] = duration
+                self.window.update()
+                time.sleep(1)
+            print('Timer end')
 
         amp, fade_dur, stim_dur = self.entry_data[[1, -2, -1], chn-1]
         button_out = self.bt_out[chn-1]
 
         if stim_dur == '' and fade_dur == '':
+            # No fade in/out nor limited stimulation duration,
+            # Indefinitely switch the output status
             state_switch(button_out, channel=chn)
         elif fade_dur != '':
-            assert stim_dur != '', 'When fade is non-empty, duration also must be non-empty'
+            # Valid input for fade duration
+            assert stim_dur != '', 'When fade is non-empty, duration also \
+                must be non-empty. Otherwise, the fade out will start right \
+                after the fade in done'
             state_switch(button_out, channel=chn, forced='on')
             fade(amp=amp, chn=chn, status='start', fade_dur=float(fade_dur))
             stim_timer(chn=chn, duration=float(stim_dur))
             fade(amp=amp, chn=chn, status='finish', fade_dur=float(fade_dur))
+            state_switch(button_out, channel=chn, forced='off')
         else:
-            state_switch(button_out, channel=chn)
+            # No fade in/out but has limited stimulation duration
+            state_switch(button_out, channel=chn, forced='on')
             stim_timer(chn=chn, duration=float(stim_dur))
-            state_switch(button_out, channel=chn)
+            state_switch(button_out, channel=chn, forced='off')
 
     def refresh(self):
         self.para_widgets_mat_obj[1, 1][0].config(width=2)
         self.window_ratio()
         self.window.update()
+
+    # The three functions below are about properly setting up the toolbox
+    # window based on the current monitor.
 
     def window_ratio(self):
         for id_row, row in enumerate([1]*7):
@@ -490,13 +560,13 @@ class tACSWindow():
                                          self.window_start_y))
         self.window.configure(bg=self._from_rgb((255, 255, 255)))
 
-        self.fontsize = np.amin([self.window_width/80, self.window_height/80]).astype(int)
+        self.fontsize = np.amin([self.window_width/80,
+                                 self.window_height/80]).astype(int)
 
     def _from_rgb(self, rgb):
         return "#%02x%02x%02x" % rgb
 
+
 window = tk.Tk()
 window.title('PyTES Toolbox')
-mywin = tACSWindow(window)
-
-
+mywin = PyTESWindow(window)
